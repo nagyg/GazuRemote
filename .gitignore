@@ -1,0 +1,28 @@
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+*.egg-info/
+*.egg
+.eggs/
+
+# GazuRemote user config (contains credentials – never commit!)
+~/GazuRemote/
+user_config.json
+
+# Bundled Python runtime (large binary – distribute separately)
+Python312/
+
+# IDE
+.vscode/
+.idea/
+*.suo
+*.user
+
+# OS
+Thumbs.db
+.DS_Store
+
+# Logs
+*.log
