@@ -24,7 +24,7 @@ Designed for artists working **outside the studio** over a VPN connection.
 | Requirement | Notes |
 |---|---|
 | **VPN connection** | The user is responsible for establishing the VPN tunnel to the studio network |
-| **Python 3.12** | Bundled locally – run `install.cmd` |
+| **Windows 10/11** | 64-bit. Python 3.12 is bundled – no separate install needed |
 | **Local mount point** | The project folder must be synced / mapped on the client machine |
 
 ---
@@ -34,45 +34,33 @@ Designed for artists working **outside the studio** over a VPN connection.
 ### 1. Clone the repository
 
 ```cmd
-git clone https://github.com/<your-account>/GazuRemote.git
+git clone https://github.com/nagyg/GazuRemote.git
 cd GazuRemote
 ```
 
-### 2. Install Python & dependencies
-
-Run the installer script (Windows):
+### 2. Run the installer
 
 ```cmd
 install.cmd
 ```
 
 The script will:
-- Copy `Python312` from the sibling Gazu installation (if `WORKGROUP` env var is set), **or**
-- Prompt you to install Python 3.12 manually into the `Python312/` subfolder
+- Extract the bundled `Python312_clean.zip` (Python 3.12.10 embeddable + pip)
 - Install all required packages from `requirements.txt`
 
-### 3. Manual Python install (if needed)
-
-1. Download Python 3.12 from https://www.python.org/downloads/
-2. Install to `GazuRemote\Python312\` (use "Customize installation" → change path)
-3. Run:
-   ```cmd
-   Python312\Scripts\pip install -r requirements.txt
-   ```
+No separate Python installation required.
 
 ---
 
 ## Running
 
-```cmd
-GazuRemote.cmd
-```
-
-Or directly:
+Double-click **`GazuRemote.exe`** or run from the command line:
 
 ```cmd
-Python312\python.exe __main__.py
+GazuRemote.exe
 ```
+
+> **Debug / console output:** use `GazuRemote.cmd` instead — it runs the app via Python directly and keeps the console window open.
 
 ---
 
@@ -109,13 +97,15 @@ Syncing the project files is the **user's responsibility** (e.g. using `rsync`, 
 
 ```
 GazuRemote/
-├── __main__.py          # Entry point
-├── GazuRemote.cmd       # Windows launcher
-├── install.cmd          # First-time setup
+├── __main__.py             # Entry point
+├── GazuRemote.exe          # Main launcher (no console)
+├── GazuRemote.cmd          # Debug launcher (console output)
+├── install.cmd             # First-time setup
+├── Python312_clean.zip     # Bundled Python 3.12.10 embeddable + pip
 ├── requirements.txt
-├── images/              # App icons and logo
+├── images/                 # App icons and logo
 ├── login/
-│   ├── login_view.py    # Authentication + mount point validation
+│   ├── login_view.py       # Authentication + mount point validation
 │   └── login_window.ui
 ├── main/
 │   ├── main_view.py         # Main window (task list)
