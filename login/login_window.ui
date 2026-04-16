@@ -7,7 +7,7 @@
     <x>0</x>
     <y>0</y>
     <width>460</width>
-    <height>620</height>
+    <height>760</height>
    </rect>
   </property>
   <property name="sizePolicy">
@@ -18,7 +18,7 @@
   </property>
   <property name="minimumSize">
    <size>
-    <width>420</width>
+    <width>460</width>
     <height>0</height>
    </size>
   </property>
@@ -26,7 +26,6 @@
    <string>Form</string>
   </property>
   <layout class="QVBoxLayout" name="verticalLayout">
-   <!-- LOGO -->
    <item>
     <widget class="QLabel" name="logoLabel">
      <property name="sizePolicy">
@@ -36,14 +35,13 @@
       </sizepolicy>
      </property>
      <property name="text">
-      <string>GazuRemote</string>
+      <string>LOGO</string>
      </property>
      <property name="alignment">
       <set>Qt::AlignmentFlag::AlignCenter</set>
      </property>
     </widget>
    </item>
-   <!-- ROLE -->
    <item>
     <widget class="QLineEdit" name="roleLineEdit">
      <property name="styleSheet">
@@ -64,7 +62,6 @@
      </property>
     </widget>
    </item>
-   <!-- CREDENTIALS GROUP -->
    <item>
     <widget class="QGroupBox" name="loginGroupBox">
      <property name="title">
@@ -166,7 +163,6 @@
      </layout>
     </widget>
    </item>
-   <!-- PROJECT GROUP -->
    <item>
     <widget class="QGroupBox" name="projectGroupBox">
      <property name="title">
@@ -225,7 +221,6 @@
      </layout>
     </widget>
    </item>
-   <!-- MOUNT POINT GROUP -->
    <item>
     <widget class="QGroupBox" name="mountGroupBox">
      <property name="title">
@@ -238,28 +233,22 @@
          <widget class="QLabel" name="remoteMountLabel">
           <property name="minimumSize">
            <size>
-            <width>90</width>
+            <width>100</width>
             <height>0</height>
            </size>
           </property>
-          <property name="text">
-           <string>Remote</string>
-          </property>
           <property name="toolTip">
            <string>Studio server mount point from the Kitsu database (project.data.mountpoint)</string>
+          </property>
+          <property name="text">
+           <string>Remote Path</string>
           </property>
          </widget>
         </item>
         <item row="0" column="1">
          <widget class="QLineEdit" name="remoteMountPointLineEdit">
           <property name="toolTip">
-           <string>Remote (studio) mount point - loaded from Kitsu database</string>
-          </property>
-          <property name="placeholderText">
-           <string>Loaded from database after project selection...</string>
-          </property>
-          <property name="readOnly">
-           <bool>true</bool>
+           <string>Remote (studio) mount point - loaded from Kitsu database, read-only</string>
           </property>
           <property name="styleSheet">
            <string notr="true">QLineEdit {
@@ -271,77 +260,94 @@
           <property name="frame">
            <bool>false</bool>
           </property>
+          <property name="readOnly">
+           <bool>true</bool>
+          </property>
+          <property name="placeholderText">
+           <string>Loaded from database after project selection...</string>
+          </property>
          </widget>
         </item>
         <item row="1" column="0">
-         <widget class="QLabel" name="localMountLabel">
+         <widget class="QLabel" name="remoteAddressLabel">
           <property name="minimumSize">
            <size>
-            <width>90</width>
+            <width>100</width>
             <height>0</height>
            </size>
           </property>
-          <property name="text">
-           <string>Local</string>
-          </property>
           <property name="toolTip">
-           <string>Your local mount point where the project folder is mapped (e.g. Z:\Projects)</string>
+           <string>Studio server network address where the mount point is accessible (e.g. \\10.0.0.100\storage\Projects)</string>
+          </property>
+          <property name="text">
+           <string>Server Address</string>
           </property>
          </widget>
         </item>
         <item row="1" column="1">
-         <layout class="QHBoxLayout" name="localMountHBox">
-          <item>
-           <widget class="QLineEdit" name="localMountPointLineEdit">
-            <property name="toolTip">
-             <string>Your local mount point (e.g. Z:\Projects). The project folder must exist here.</string>
-            </property>
-            <property name="placeholderText">
-             <string>e.g. Z:\Projects</string>
-            </property>
-            <property name="clearButtonEnabled">
-             <bool>true</bool>
-            </property>
-           </widget>
-          </item>
-          <item>
-           <widget class="QPushButton" name="browseMountButton">
-            <property name="maximumSize">
-             <size>
-              <width>30</width>
-              <height>16777215</height>
-             </size>
-            </property>
-            <property name="text">
-             <string>...</string>
-            </property>
-            <property name="toolTip">
-             <string>Browse for local mount point folder</string>
-            </property>
-           </widget>
-          </item>
-         </layout>
+         <widget class="QLineEdit" name="remoteAddressLineEdit">
+          <property name="toolTip">
+           <string>Studio server UNC path (e.g. \\10.0.0.100\storage\Projects). The project folder must be accessible here.</string>
+          </property>
+          <property name="placeholderText">
+           <string>e.g. \\10.0.0.100\storage\Projects</string>
+          </property>
+          <property name="clearButtonEnabled">
+           <bool>true</bool>
+          </property>
+         </widget>
         </item>
        </layout>
       </item>
-      <!-- MOUNT STATUS -->
       <item>
-       <widget class="QLabel" name="mountStatusLabel">
+       <widget class="QPushButton" name="refreshPushButton">
         <property name="text">
-         <string>Select a project to check mount points.</string>
-        </property>
-        <property name="wordWrap">
-         <bool>true</bool>
-        </property>
-        <property name="styleSheet">
-         <string notr="true">color: gray; font-style: italic;</string>
+         <string>Refresh</string>
         </property>
        </widget>
       </item>
      </layout>
     </widget>
    </item>
-   <!-- CONSOLE -->
+   <item>
+    <spacer name="verticalSpacer">
+     <property name="orientation">
+      <enum>Qt::Orientation::Vertical</enum>
+     </property>
+     <property name="sizeHint" stdset="0">
+      <size>
+       <width>20</width>
+       <height>40</height>
+      </size>
+     </property>
+    </spacer>
+   </item>
+   <item>
+    <widget class="QPushButton" name="loginButton">
+     <property name="minimumSize">
+      <size>
+       <width>160</width>
+       <height>36</height>
+      </size>
+     </property>
+     <property name="text">
+      <string>Open Remote Project</string>
+     </property>
+    </widget>
+   </item>
+   <item>
+    <spacer name="verticalSpacer_2">
+     <property name="orientation">
+      <enum>Qt::Orientation::Vertical</enum>
+     </property>
+     <property name="sizeHint" stdset="0">
+      <size>
+       <width>20</width>
+       <height>40</height>
+      </size>
+     </property>
+    </spacer>
+   </item>
    <item>
     <widget class="QTextEdit" name="consoleTextEdit">
      <property name="sizePolicy">
@@ -364,46 +370,18 @@
      </property>
     </widget>
    </item>
-   <!-- DEBUG + OPEN -->
    <item>
-    <layout class="QHBoxLayout" name="bottomHBox">
-     <item>
-      <widget class="QCheckBox" name="debugCheckBox">
-       <property name="styleSheet">
-        <string notr="true">color: gray;</string>
-       </property>
-       <property name="text">
-        <string>Debug Mode</string>
-       </property>
-      </widget>
-     </item>
-     <item>
-      <spacer name="horizontalSpacer">
-       <property name="orientation">
-        <enum>Qt::Orientation::Horizontal</enum>
-       </property>
-       <property name="sizeHint" stdset="0">
-        <size>
-         <width>40</width>
-         <height>20</height>
-        </size>
-       </property>
-      </spacer>
-     </item>
-     <item>
-      <widget class="QPushButton" name="loginButton">
-       <property name="minimumSize">
-        <size>
-         <width>160</width>
-         <height>36</height>
-        </size>
-       </property>
-       <property name="text">
-        <string>Open Remote Project</string>
-       </property>
-      </widget>
-     </item>
-    </layout>
+    <widget class="QCheckBox" name="debugCheckBox">
+     <property name="layoutDirection">
+      <enum>Qt::LayoutDirection::RightToLeft</enum>
+     </property>
+     <property name="styleSheet">
+      <string notr="true">color: gray;</string>
+     </property>
+     <property name="text">
+      <string>Debug Mode</string>
+     </property>
+    </widget>
    </item>
   </layout>
  </widget>
@@ -411,7 +389,7 @@
   <tabstop>hostLineEdit</tabstop>
   <tabstop>userLineEdit</tabstop>
   <tabstop>passwordLineEdit</tabstop>
-  <tabstop>localMountPointLineEdit</tabstop>
+  <tabstop>remoteAddressLineEdit</tabstop>
  </tabstops>
  <resources/>
  <connections/>

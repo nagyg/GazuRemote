@@ -15,4 +15,6 @@ IF NOT EXIST "%PYTHON%" (
     exit /b 1
 )
 
+echo Starting GazuRemote...
 "%PYTHON%" "%SCRIPT_DIR%__main__.py" %*
+pause

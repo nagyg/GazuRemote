@@ -21,6 +21,7 @@ class PublisherDialog(QtWidgets.QDialog):
         self.ui = loader.load(ui_file_path, self)
 
         self.setWindowTitle("Kitsu Publisher")
+        self.resize(600, 450)
         self._selected_file_path = None
 
         # --- Find widgets ---
@@ -94,6 +95,18 @@ class PublisherDialog(QtWidgets.QDialog):
         self.setLayout(self.ui.layout())
         self._update_combo_box_color(self.status_combo_box.currentIndex())
 
+    def set_file_path(self, path: str):
+        """Pre-fills the file path and enables the Publish button."""
+        path = os.path.normpath(path)
+        self._selected_file_path = path
+        self.file_path_line_edit.setText(path)
+        ok_btn = self.buttonBox.button(QtWidgets.QDialogButtonBox.Ok)
+        if ok_btn:
+            ok_btn.setEnabled(True)
+        file_name = os.path.basename(path)
+        if not self.comment_text_edit.toPlainText():
+            self.comment_text_edit.setPlainText(file_name)
+
     def _on_browse_file(self):
         """Opens a file dialog to select the preview file to publish."""
         file_path, _ = QtWidgets.QFileDialog.getOpenFileName(
@@ -103,15 +116,7 @@ class PublisherDialog(QtWidgets.QDialog):
             "Media Files (*.mp4 *.mov *.avi *.png *.jpg *.jpeg *.exr *.tiff *.tif *.gif);;All Files (*.*)"
         )
         if file_path:
-            self._selected_file_path = file_path
-            self.file_path_line_edit.setText(file_path)
-            # Enable publish button now that a file is chosen
-            ok_btn = self.buttonBox.button(QtWidgets.QDialogButtonBox.Ok)
-            if ok_btn:
-                ok_btn.setEnabled(True)
-            # Set file name as default comment
-            file_name = os.path.basename(file_path)
-            self.comment_text_edit.setPlainText(file_name)
+            self.set_file_path(file_path)
 
     def _update_combo_box_color(self, index):
         """Updates the combo box text color to match the selected status color."""

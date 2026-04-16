@@ -5,6 +5,7 @@ from pathlib import Path
 from PySide6 import QtWidgets, QtCore
 from PySide6.QtGui import QIcon, QPixmap
 from PySide6.QtUiTools import QUiLoader
+from PySide6.QtWidgets import QTableView
 
 from services import gazu_api, ui_utils
 from services.config_service import ConfigService
@@ -19,15 +20,19 @@ class RemoteMainView(QtWidgets.QMainWindow):
     No DCC launcher, no scaffold, no file system browser.
     """
 
-    def __init__(self, debug_mode=False, credentials=None, project_data=None, local_mount_point=""):
+    def __init__(self, debug_mode=False, credentials=None, project_data=None, remote_address="", local_address=""):
         super().__init__()
         self.debug_mode = debug_mode
         gazu_api.set_debug_mode(self.debug_mode)
 
         self.project_data = project_data
-        self.local_mount_point = local_mount_point
+        self.remote_address = remote_address
         self.credentials = credentials or {}
         self.config_service = ConfigService()
+        self.local_address = local_address or (
+            self.config_service.load_local_mount_point(project_data.get("id", ""))
+            if project_data else ""
+        )
         self.kitsu_base_url = ""
         self.active_publishers = []
 
@@ -68,6 +73,8 @@ class RemoteMainView(QtWidgets.QMainWindow):
         self.url_button = self._fw(QtWidgets.QPushButton, "urlButton")
         self.publish_button = self._fw(QtWidgets.QPushButton, "publishButton")
         self.tasks_tree_view = self._fw(QtWidgets.QTreeView, "tasksTreeView")
+        self.directories_tree_view = self._fw(QtWidgets.QTreeView, "directoriesTreeView")
+        self.files_table_view = self._fw(QtWidgets.QTableView, "filesTableView")
         self.console_text_edit = self._fw(QtWidgets.QTextEdit, "consoleTextEdit")
 
         # --- Setup UI ---
@@ -108,11 +115,10 @@ class RemoteMainView(QtWidgets.QMainWindow):
             self.role_line_edit.setText(self.credentials.get("role", ""))
 
         # Mount points
-        remote_mp = (self.project_data.get("data") or {}).get("mountpoint", "") if self.project_data else ""
         if self.remote_mount_line_edit:
-            self.remote_mount_line_edit.setText(remote_mp)
+            self.remote_mount_line_edit.setText(self.remote_address)
         if self.local_mount_line_edit:
-            self.local_mount_line_edit.setText(self.local_mount_point)
+            self.local_mount_line_edit.setText(self.local_address)
 
         # Done combo
         if self.done_combo_box:
@@ -125,7 +131,6 @@ class RemoteMainView(QtWidgets.QMainWindow):
             self.url_button.clicked.connect(self._on_url_button_clicked)
         if self.publish_button:
             self.publish_button.clicked.connect(self._on_publish_clicked)
-            self.publish_button.setEnabled(False)  # Enabled on task selection
 
         # Filter
         if self.filter_line_edit:
@@ -160,6 +165,10 @@ class RemoteMainView(QtWidgets.QMainWindow):
             tasks_tree_view=self.tasks_tree_view,
             thumbnail_label=self.thumbnail_label,
             project_data=self.project_data,
+            directories_tree_view=self.directories_tree_view,
+            files_table_view=self.files_table_view,
+            remote_address=self.remote_address,
+            local_address=self.local_address,
             parent=self,
         )
         self.tasks_widget.task_selection_changed.connect(self._on_task_selection_changed)
@@ -270,8 +279,10 @@ class RemoteMainView(QtWidgets.QMainWindow):
     # -------------------------------------------------------------------------
 
     def _on_refresh_clicked(self):
-        """Refreshes the task list from Kitsu."""
+        """Refreshes the task list from Kitsu and re-scans local/remote folders."""
         self._load_tasks()
+        if hasattr(self, "tasks_widget"):
+            self.tasks_widget.restart_context_scan()
 
     def _on_filter_changed(self):
         """Re-applies filters without re-fetching from API."""
@@ -282,8 +293,6 @@ class RemoteMainView(QtWidgets.QMainWindow):
     def _on_task_selection_changed(self, task_data):
         """Updates the toolbar state based on the selected task."""
         is_task = bool(task_data)
-        if self.publish_button:
-            self.publish_button.setEnabled(is_task)
         if self.url_button:
             self.url_button.setEnabled(True)
 
@@ -307,9 +316,18 @@ class RemoteMainView(QtWidgets.QMainWindow):
             self.log_to_console("Could not build Kitsu URL.", ui_utils.COLOR_WARNING)
 
     def _on_publish_clicked(self):
-        """Triggers publish for the selected task."""
-        if hasattr(self, "tasks_widget"):
-            self.tasks_widget.publish_to_kitsu()
+        """Toggles the Publisher Manager dialog (show/hide on repeated clicks)."""
+        from .publisher_manager_dialog import PublisherManagerDialog
+        if not hasattr(self, "publisher_manager_dialog") or self.publisher_manager_dialog is None:
+            self.publisher_manager_dialog = PublisherManagerDialog([], self)
+
+        if self.publisher_manager_dialog.isVisible():
+            self.publisher_manager_dialog.hide()
+        else:
+            self.publisher_manager_dialog.show()
+            ui_utils.position_next_to_parent(self.publisher_manager_dialog, self)
+            self.publisher_manager_dialog.raise_()
+            self.publisher_manager_dialog.activateWindow()
 
     # -------------------------------------------------------------------------
     # Logging

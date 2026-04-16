@@ -45,6 +45,25 @@ class ConfigService:
         data["config_service"]["last_project_id"] = project_id
         self._save_config_data(data)
 
+    def save_remote_address(self, project_id, remote_address):
+        """
+        Saves the studio server network address (UNC path) for a specific project.
+        e.g. \\\\10.0.0.100\\storage\\Projects
+        """
+        data = self.load_config_data()
+        if "remote_addresses" not in data:
+            data["remote_addresses"] = {}
+        data["remote_addresses"][project_id] = remote_address
+        self._save_config_data(data)
+
+    def load_remote_address(self, project_id):
+        """
+        Loads the studio server network address for a specific project.
+        Returns an empty string if not configured.
+        """
+        data = self.load_config_data()
+        return data.get("remote_addresses", {}).get(project_id, "")
+
     def save_local_mount_point(self, project_id, local_mount_point):
         """
         Saves the local mount point for a specific project.

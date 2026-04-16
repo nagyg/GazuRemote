@@ -19,6 +19,22 @@ if _project_root not in sys.path:
     sys.path.insert(0, str(_project_root))
 
 
+class PathCheckWorker(QObject):
+    """Checks if a remote path (UNC or local) is accessible without blocking the UI."""
+    finished = Signal(bool, str)  # (accessible, path_checked)
+
+    def __init__(self, path):
+        super().__init__()
+        self.path = path
+
+    def run(self):
+        try:
+            accessible = Path(self.path).is_dir()
+            self.finished.emit(accessible, self.path)
+        except Exception:
+            self.finished.emit(False, self.path)
+
+
 class LoginWorker(QObject):
     """Background worker for authentication to keep the UI responsive."""
     login_finished = Signal(bool, str)
@@ -60,7 +76,6 @@ class RemoteLoginView(QtWidgets.QWidget):
             return
 
         layout = QtWidgets.QVBoxLayout(self)
-        layout.setContentsMargins(0, 0, 0, 0)
         layout.addWidget(self.ui)
         self.setLayout(layout)
 
@@ -70,7 +85,7 @@ class RemoteLoginView(QtWidgets.QWidget):
             image_path = os.path.join(os.path.dirname(__file__), "..", "images", "gazu_remote.svg")
             if os.path.exists(image_path):
                 pixmap = QPixmap(image_path)
-                self.logoLabel.setPixmap(pixmap.scaledToHeight(100, QtCore.Qt.SmoothTransformation))
+                self.logoLabel.setPixmap(pixmap.scaledToHeight(128, QtCore.Qt.SmoothTransformation))
 
         # --- Find Widgets ---
         self.loginButton = self.ui.findChild(QtWidgets.QPushButton, "loginButton")
@@ -84,9 +99,8 @@ class RemoteLoginView(QtWidgets.QWidget):
         self.projectTypeLineEdit = self.ui.findChild(QtWidgets.QLineEdit, "projectTypeLineEdit")
         self.roleLineEdit = self.ui.findChild(QtWidgets.QLineEdit, "roleLineEdit")
         self.remoteMountPointLineEdit = self.ui.findChild(QtWidgets.QLineEdit, "remoteMountPointLineEdit")
-        self.localMountPointLineEdit = self.ui.findChild(QtWidgets.QLineEdit, "localMountPointLineEdit")
-        self.browseMountButton = self.ui.findChild(QtWidgets.QPushButton, "browseMountButton")
-        self.mountStatusLabel = self.ui.findChild(QtWidgets.QLabel, "mountStatusLabel")
+        self.remoteAddressLineEdit = self.ui.findChild(QtWidgets.QLineEdit, "remoteAddressLineEdit")
+        self.refreshMountButton = self.ui.findChild(QtWidgets.QPushButton, "refreshPushButton")
 
         # --- Initial state ---
         if self.projectComboBox:
@@ -115,9 +129,18 @@ class RemoteLoginView(QtWidgets.QWidget):
         # --- Internal state ---
         self.thread = None
         self.worker = None
+        self._path_check_thread = None
+        self._path_check_worker = None
+        self._remote_path_check_thread = None
+        self._remote_path_check_worker = None
         self.main_window = None
         self._is_logged_in = False
         self.project_data = None
+
+        # Debounce timer: waits 400 ms after last keystroke before starting path check
+        self._path_check_debounce = QtCore.QTimer(self)
+        self._path_check_debounce.setSingleShot(True)
+        self._path_check_debounce.timeout.connect(self._validate_mount_points)
 
         # --- Connect signals ---
         if self.passwordLineEdit:
@@ -129,10 +152,10 @@ class RemoteLoginView(QtWidgets.QWidget):
             self.credButton.clicked.connect(self.handle_cred_button_press)
         if self.projectComboBox:
             self.projectComboBox.currentIndexChanged.connect(self.on_project_selection_change)
-        if self.browseMountButton:
-            self.browseMountButton.clicked.connect(self.on_browse_mount_clicked)
-        if self.localMountPointLineEdit:
-            self.localMountPointLineEdit.textChanged.connect(self.on_local_mount_changed)
+        if self.remoteAddressLineEdit:
+            self.remoteAddressLineEdit.textChanged.connect(self._on_remote_address_text_changed)
+        if self.refreshMountButton:
+            self.refreshMountButton.clicked.connect(self._validate_mount_points)
 
         # --- Auto-login on startup ---
         QtCore.QTimer.singleShot(0, self.try_auto_login_and_fetch_projects)
@@ -297,7 +320,6 @@ class RemoteLoginView(QtWidgets.QWidget):
                 f"'{project_data.get('name')}' is NOT initialized (no mountpoint in database).",
                 ui_utils.COLOR_WARNING
             )
-            self._set_mount_status("Project not initialized – no mount point in database.", ui_utils.COLOR_WARNING)
             if self.remoteMountPointLineEdit:
                 self.remoteMountPointLineEdit.setText("")
             return
@@ -306,13 +328,15 @@ class RemoteLoginView(QtWidgets.QWidget):
         if self.remoteMountPointLineEdit:
             self.remoteMountPointLineEdit.setText(remote_mountpoint)
 
-        # Load saved local mount point for this project
+        # Load saved remote address for this project (block signal to avoid double validation)
         project_id = project_data.get("id", "")
-        saved_local = self.config_service.load_local_mount_point(project_id)
-        if saved_local and self.localMountPointLineEdit:
-            self.localMountPointLineEdit.setText(saved_local)
+        saved_address = self.config_service.load_remote_address(project_id)
+        if self.remoteAddressLineEdit:
+            self.remoteAddressLineEdit.blockSignals(True)
+            self.remoteAddressLineEdit.setText(saved_address)
+            self.remoteAddressLineEdit.blockSignals(False)
 
-        # Validate mount points
+        # Single explicit validation
         self._validate_mount_points()
 
     # -------------------------------------------------------------------------
@@ -322,86 +346,163 @@ class RemoteLoginView(QtWidgets.QWidget):
     def _validate_mount_points(self):
         """
         Validates the mount point configuration:
-        - Remote mount point must be set in the database (project initialized).
-        - Local mount point + project name directory must exist on this machine.
-        Updates the status label and enables/disables the login button.
+        - DB mountpoint (local mapped drive, e.g. Z:\\Projects) must exist locally.
+          Confirms the drive mapping is active and the project folder is accessible.
+        - Server address (remoteAddressLineEdit, VPN UNC) is optional at this stage
+          but saved when provided.
         """
         if not self.project_data:
-            self._set_mount_status("No project selected.", ui_utils.COLOR_NEUTRAL)
+            if self.loginButton:
+                self.loginButton.setEnabled(False)
             return
 
-        remote_mountpoint = (self.project_data.get("data") or {}).get("mountpoint", "")
-        if not remote_mountpoint:
-            self._set_mount_status("Project not initialized – no remote mount point.", ui_utils.COLOR_WARNING)
+        local_mount = (self.project_data.get("data") or {}).get("mountpoint", "")
+        if not local_mount:
+            self.log_to_console(
+                "Project not initialized – no mount point set in the database.",
+                ui_utils.COLOR_WARNING
+            )
             if self.loginButton:
                 self.loginButton.setEnabled(False)
             return
 
         project_name = self.project_data.get("name", "")
-        local_mount = self.localMountPointLineEdit.text().strip() if self.localMountPointLineEdit else ""
+        local_project_path = str(Path(local_mount) / project_name)
 
-        if not local_mount:
-            self._set_mount_status("Please enter the local mount point path.", ui_utils.COLOR_WARNING)
+        # Disable login during async path check
+        if self.loginButton:
+            self.loginButton.setEnabled(False)
+        if self.refreshMountButton:
+            self.refreshMountButton.setEnabled(False)
+
+        # Stop debounce in case we were called directly
+        self._path_check_debounce.stop()
+
+        # Cancel any previous check still running
+        if self._path_check_thread is not None:
+            try:
+                if self._path_check_thread.isRunning():
+                    self._path_check_thread.quit()
+                    self._path_check_thread.wait(1000)
+            except RuntimeError:
+                pass
+            self._path_check_thread = None
+            self._path_check_worker = None
+
+        self.log_to_console(
+            f"Checking local mapped path: {local_project_path} ...",
+            ui_utils.COLOR_INFO
+        )
+
+        self._path_check_thread = QThread()
+        self._path_check_worker = PathCheckWorker(local_project_path)
+        self._path_check_worker.moveToThread(self._path_check_thread)
+
+        self._path_check_thread.started.connect(self._path_check_worker.run)
+        self._path_check_worker.finished.connect(self._on_path_check_finished)
+        self._path_check_worker.finished.connect(self._path_check_thread.quit)
+        self._path_check_worker.finished.connect(self._path_check_worker.deleteLater)
+        self._path_check_thread.finished.connect(self._path_check_thread.deleteLater)
+        self._path_check_thread.finished.connect(self._clear_path_check_thread)
+
+        self._path_check_thread.start()
+
+    def _clear_path_check_thread(self):
+        """Clears the thread reference after it has been deleted by Qt."""
+        self._path_check_thread = None
+
+    def _clear_remote_path_check_thread(self):
+        """Clears the remote thread reference after it has been deleted by Qt."""
+        self._remote_path_check_thread = None
+
+    def _on_path_check_finished(self, accessible, path_checked):
+        """Called when the background local path accessibility check completes."""
+        if not accessible:
+            self.log_to_console(
+                f"✖  Local mapped path NOT accessible: {path_checked}",
+                ui_utils.COLOR_ERROR
+            )
             if self.loginButton:
                 self.loginButton.setEnabled(False)
+            if self.refreshMountButton:
+                self.refreshMountButton.setEnabled(True)
             return
 
-        # Check if local_mount/project_name exists
-        local_project_path = Path(local_mount) / project_name
-
-        if local_project_path.exists() and local_project_path.is_dir():
-            self._set_mount_status(
-                f"✔  Local path found: {local_project_path}",
-                ui_utils.COLOR_SUCCESS
-            )
-            self.log_to_console(
-                f"Mount point OK: {local_project_path}",
-                ui_utils.COLOR_SUCCESS
-            )
-            if self.loginButton:
-                self.loginButton.setEnabled(True)
-
-            # Save the validated local mount point
-            project_id = self.project_data.get("id", "")
-            if project_id:
-                self.config_service.save_local_mount_point(project_id, local_mount)
-        else:
-            self._set_mount_status(
-                f"⚠  Local path NOT found: {local_project_path}\n"
-                f"   Sync the project folder before opening. You can still connect.",
-                ui_utils.COLOR_WARNING
-            )
-            self.log_to_console(
-                f"Warning: Local path not found: {local_project_path}",
-                ui_utils.COLOR_WARNING
-            )
-            # Allow opening anyway – user is responsible for sync
-            if self.loginButton:
-                self.loginButton.setEnabled(True)
-
-    def _set_mount_status(self, message, color):
-        """Updates the mount status label text and color."""
-        if self.mountStatusLabel:
-            self.mountStatusLabel.setText(message)
-            self.mountStatusLabel.setStyleSheet(f"color: {color}; font-style: italic;")
-
-    def on_local_mount_changed(self, text):
-        """Re-validates mount points when the local mount path changes."""
-        self._validate_mount_points()
-
-    def on_browse_mount_clicked(self):
-        """Opens a folder browser for selecting the local mount point."""
-        current = self.localMountPointLineEdit.text().strip() if self.localMountPointLineEdit else ""
-        start_dir = current if current and os.path.exists(current) else str(Path.home())
-
-        folder = QtWidgets.QFileDialog.getExistingDirectory(
-            self,
-            "Select Local Mount Point",
-            start_dir,
-            QtWidgets.QFileDialog.ShowDirsOnly | QtWidgets.QFileDialog.DontResolveSymlinks
+        self.log_to_console(
+            f"✔  Local path accessible: {path_checked}",
+            ui_utils.COLOR_SUCCESS
         )
-        if folder and self.localMountPointLineEdit:
-            self.localMountPointLineEdit.setText(folder)
+
+        # Save confirmed local mount
+        if self.project_data:
+            project_id = self.project_data.get("id", "")
+            local_mount = (self.project_data.get("data") or {}).get("mountpoint", "")
+            if project_id and local_mount:
+                self.config_service.save_local_mount_point(project_id, local_mount)
+
+        # Now validate remote address if provided
+        remote_address = self.remoteAddressLineEdit.text().strip() if self.remoteAddressLineEdit else ""
+        if not remote_address:
+            # No remote address — allow opening without it
+            if self.loginButton:
+                self.loginButton.setEnabled(True)
+            if self.refreshMountButton:
+                self.refreshMountButton.setEnabled(True)
+            return
+
+        # Cancel any previous remote check
+        if self._remote_path_check_thread is not None:
+            try:
+                if self._remote_path_check_thread.isRunning():
+                    self._remote_path_check_thread.quit()
+                    self._remote_path_check_thread.wait(1000)
+            except RuntimeError:
+                pass
+            self._remote_path_check_thread = None
+            self._remote_path_check_worker = None
+
+        self.log_to_console(
+            f"Checking remote address: {remote_address} ...",
+            ui_utils.COLOR_INFO
+        )
+
+        self._remote_path_check_thread = QThread()
+        self._remote_path_check_worker = PathCheckWorker(remote_address)
+        self._remote_path_check_worker.moveToThread(self._remote_path_check_thread)
+
+        self._remote_path_check_thread.started.connect(self._remote_path_check_worker.run)
+        self._remote_path_check_worker.finished.connect(self._on_remote_path_check_finished)
+        self._remote_path_check_worker.finished.connect(self._remote_path_check_thread.quit)
+        self._remote_path_check_worker.finished.connect(self._remote_path_check_worker.deleteLater)
+        self._remote_path_check_thread.finished.connect(self._remote_path_check_thread.deleteLater)
+        self._remote_path_check_thread.finished.connect(self._clear_remote_path_check_thread)
+
+        self._remote_path_check_thread.start()
+
+    def _on_remote_path_check_finished(self, accessible, path_checked):
+        """Called when the background remote address accessibility check completes."""
+        if self.refreshMountButton:
+            self.refreshMountButton.setEnabled(True)
+        if accessible:
+            self.log_to_console(
+                f"✔  Remote address accessible: {path_checked}",
+                ui_utils.COLOR_SUCCESS
+            )
+            if self.loginButton:
+                self.loginButton.setEnabled(True)
+        else:
+            self.log_to_console(
+                f"✖  Remote address NOT accessible: {path_checked}",
+                ui_utils.COLOR_ERROR
+            )
+            if self.loginButton:
+                self.loginButton.setEnabled(False)
+
+    def _on_remote_address_text_changed(self, text):
+        """Debounces path validation while the user is typing."""
+        if self.loginButton:
+            self.loginButton.setEnabled(False)
+        self._path_check_debounce.start(400)
 
     # -------------------------------------------------------------------------
     # Credential management
@@ -437,7 +538,6 @@ class RemoteLoginView(QtWidgets.QWidget):
         if self.credButton:
             self.credButton.setText("Authenticate")
 
-        self._set_mount_status("Select a project to check mount points.", ui_utils.COLOR_NEUTRAL)
         self.log_to_console("Logged out. Please enter credentials.", ui_utils.COLOR_INFO)
 
     # -------------------------------------------------------------------------
@@ -456,15 +556,23 @@ class RemoteLoginView(QtWidgets.QWidget):
             )
             return
 
-        local_mount = self.localMountPointLineEdit.text().strip() if self.localMountPointLineEdit else ""
+        # local_address  = DB mountpoint = locally mapped drive (e.g. Z:\Projects)
+        #                  validated to be accessible before reaching this point
+        local_address = (self.project_data.get("data") or {}).get("mountpoint", "") if self.project_data else ""
+
+        # remote_address = studio server VPN UNC path (e.g. \\\\10.0.0.100\\storage\\Projects)
+        #                  source of truth for context scanning
+        remote_address = self.remoteAddressLineEdit.text().strip() if self.remoteAddressLineEdit else ""
 
         # Save last project
         self.config_service.save_last_project(self.project_data.get("id"))
 
-        # Save local mount point
         project_id = self.project_data.get("id", "")
-        if project_id and local_mount:
-            self.config_service.save_local_mount_point(project_id, local_mount)
+        if project_id:
+            if local_address:
+                self.config_service.save_local_mount_point(project_id, local_address)
+            if remote_address:
+                self.config_service.save_remote_address(project_id, remote_address)
 
         debug_mode = self.debugCheckBox.isChecked() if self.debugCheckBox else False
 
@@ -478,7 +586,8 @@ class RemoteLoginView(QtWidgets.QWidget):
             debug_mode=debug_mode,
             credentials=credentials,
             project_data=self.project_data,
-            local_mount_point=local_mount,
+            remote_address=remote_address,
+            local_address=local_address,
         )
 
         self.main_window.display()
