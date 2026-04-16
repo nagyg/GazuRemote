@@ -44,8 +44,8 @@ exit /b 1
 :install_deps
 echo.
 echo [INFO] Installing dependencies from requirements.txt...
-"%PYTHON%" -m pip install --upgrade pip --quiet
-"%PYTHON%" -m pip install -r "%SCRIPT_DIR%requirements.txt"
+"%PYTHON%" -m pip install --upgrade pip --quiet --no-warn-script-location
+"%PYTHON%" -m pip install -r "%SCRIPT_DIR%requirements.txt" --no-warn-script-location
 
 IF %ERRORLEVEL% NEQ 0 (
     echo [ERROR] Dependency installation failed.
