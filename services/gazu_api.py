@@ -177,7 +177,8 @@ def get_kitsu_base_url():
 def get_tasks_for_user_and_project(user, project_data, include_done=False):
     """
     Fetches all tasks for a given user and project.
-    Filters by project_id from all tasks assigned to the user.
+    Enriches each task with 'task_type_short_name' from the project's task types
+    so that template path resolution matches the Gazu main app behaviour.
     """
     all_user_tasks = gazu.task.all_tasks_for_person(user)
 
@@ -190,6 +191,18 @@ def get_tasks_for_user_and_project(user, project_data, include_done=False):
         task for task in all_user_tasks
         if task["project_id"] == project_id
     ]
+
+    # Build task_type_id → short_name lookup (same enrichment as Gazu main app)
+    try:
+        all_task_types = gazu.task.all_task_types_for_project(project_id)
+        task_type_map = {tt["id"]: tt.get("short_name") for tt in all_task_types}
+        for task in project_tasks:
+            tt_id = task.get("task_type_id")
+            if tt_id in task_type_map:
+                task["task_type_short_name"] = task_type_map[tt_id]
+    except Exception:
+        pass  # Non-fatal – path coloring will fall back to task_type_name
+
     return project_tasks
 
 

@@ -218,7 +218,7 @@
          <number>8</number>
         </property>
         <item row="0" column="0">
-         <widget class="QLabel" name="label">
+         <widget class="QLabel" name="remoteLabel">
           <property name="minimumSize">
            <size>
             <width>55</width>
@@ -227,6 +227,29 @@
           </property>
           <property name="text">
            <string>Remote</string>
+          </property>
+         </widget>
+        </item>
+        <item row="1" column="0">
+         <widget class="QLabel" name="localLabel">
+          <property name="text">
+           <string>Local</string>
+          </property>
+         </widget>
+        </item>
+        <item row="1" column="1">
+         <widget class="QLineEdit" name="localMountLineEdit">
+          <property name="focusPolicy">
+           <enum>Qt::FocusPolicy::NoFocus</enum>
+          </property>
+          <property name="styleSheet">
+           <string notr="true">QLineEdit { color: gray; background: transparent; border: none; }</string>
+          </property>
+          <property name="frame">
+           <bool>false</bool>
+          </property>
+          <property name="readOnly">
+           <bool>true</bool>
           </property>
          </widget>
         </item>
@@ -246,26 +269,17 @@
           </property>
          </widget>
         </item>
-        <item row="1" column="0">
-         <widget class="QLabel" name="label">
+        <item row="2" column="0">
+         <widget class="QLabel" name="projectLabel">
           <property name="text">
-           <string>Server</string>
+           <string>Project</string>
           </property>
          </widget>
         </item>
-        <item row="1" column="1">
-         <widget class="QLineEdit" name="localMountLineEdit">
-          <property name="focusPolicy">
-           <enum>Qt::FocusPolicy::NoFocus</enum>
-          </property>
+        <item row="2" column="1">
+         <widget class="QLineEdit" name="projectLineEdit">
           <property name="styleSheet">
            <string notr="true">QLineEdit { color: gray; background: transparent; border: none; }</string>
-          </property>
-          <property name="frame">
-           <bool>false</bool>
-          </property>
-          <property name="readOnly">
-           <bool>true</bool>
           </property>
          </widget>
         </item>
@@ -570,7 +584,7 @@
            <number>16</number>
           </attribute>
          </widget>
-         <widget class="QWidget" name="">
+         <widget class="QWidget" name="layoutWidget">
           <layout class="QVBoxLayout" name="DirectoriesVerticalLayout">
            <item>
             <widget class="QTreeView" name="directoriesTreeView">

@@ -1,12 +1,13 @@
 import datetime
 import json
 import os
+import re
 import traceback
 import webbrowser
 from pathlib import Path
 
 from PySide6 import QtWidgets, QtCore
-from PySide6.QtCore import Qt, QObject, Signal, QThread, QThreadPool, QRunnable, QMimeData
+from PySide6.QtCore import Qt, QObject, Signal, QThreadPool, QRunnable, QMimeData
 from PySide6.QtGui import (
     QStandardItemModel, QStandardItem, QBrush, QColor, QFont, QPixmap, QIcon
 )
@@ -21,51 +22,6 @@ from .publisher_dialog import PublisherDialog
 # ---------------------------------------------------------------------------
 COLOR_NO_PATH   = QColor(150, 50, 50)   # red – task/parent with unsynced files
 COLOR_PARENT_OK = QColor(50, 150, 50)  # green – all tasks found under this parent
-
-
-# ---------------------------------------------------------------------------
-# Background worker: scan remote_address/project_name for .gazu_context files
-# ---------------------------------------------------------------------------
-
-class ContextScanWorker(QObject):
-    """
-    Recursively walks ``root_path`` and collects all ``.gazu_context`` files.
-    Builds a mapping  ``{task_id: folder_path}``  and emits it on finish.
-    """
-    finished = Signal(dict)   # {task_id: folder_path_str}
-    progress = Signal(str)    # optional status messages
-
-    def __init__(self, root_path: str):
-        super().__init__()
-        self._root = root_path
-        self._cancelled = False
-
-    def cancel(self):
-        """Request early termination. Safe to call from any thread."""
-        self._cancelled = True
-
-    def run(self):
-        result: dict = {}
-        try:
-            for dirpath, dirnames, filenames in os.walk(self._root):
-                if self._cancelled:
-                    break
-                # Skip hidden dirs to stay fast on large trees
-                dirnames[:] = [d for d in dirnames if not d.startswith(".")]
-                if ".gazu_context" in filenames:
-                    ctx_path = os.path.join(dirpath, ".gazu_context")
-                    try:
-                        with open(ctx_path, "r", encoding="utf-8") as fh:
-                            data = json.load(fh)
-                        # Support both 'task_id' (written by Gazu) and 'id' variants
-                        tid = data.get("task_id") or data.get("id")
-                        if tid:
-                            result[tid] = dirpath
-                    except Exception:
-                        pass   # corrupt file – skip silently
-        except Exception as e:
-            self.progress.emit(f"Context scan error: {e}")
-        self.finished.emit(result)
 
 
 # ---------------------------------------------------------------------------
@@ -238,17 +194,12 @@ class RemoteTasksWidget(QtWidgets.QWidget):
         self.local_address = local_address
         self.hierarchy_cache = {}
 
-        # task_id -> folder_path, populated by ContextScanWorker for each root
+        # task_id -> folder_path, built from templates.json
         self._remote_task_path_map: dict = {}
         self._local_task_path_map: dict = {}
-        self._remote_scan_thread = None
-        self._local_scan_thread = None
-        # Keep strong references to workers – without this Python GC kills them
-        # before the background thread finishes (QThread holds no Python ref).
-        self._remote_scan_worker = None
-        self._local_scan_worker = None
-        # Incremented on every restart; finished callbacks ignore stale generations.
-        self._scan_generation: int = 0
+        # templates.json cache – loaded once from server, invalidated on mtime change
+        self._templates: list = []
+        self._templates_file_mtime: float = 0.0
 
         # Thumbnail pool
         self.active_thumbnail_downloads: set = set()
@@ -268,7 +219,6 @@ class RemoteTasksWidget(QtWidgets.QWidget):
         self._apply_uniform_styles()
         self._setup_task_view()
         self._setup_dir_and_file_views()
-        self._start_context_scan()
 
     # -------------------------------------------------------------------------
     # Setup
@@ -370,105 +320,137 @@ class RemoteTasksWidget(QtWidgets.QWidget):
     # Context scan (background)
     # -------------------------------------------------------------------------
 
-    def restart_context_scan(self):
-        """Clears existing scan results and re-runs both remote and local scans.
-        Increments _scan_generation so any still-running old thread's finished
-        signal is silently ignored when it eventually arrives.
-        """
-        # Signal cancellation to workers still in their os.walk loop.
-        for worker in (self._remote_scan_worker, self._local_scan_worker):
-            if worker is not None:
-                worker.cancel()
-        # Bump generation BEFORE nulling refs – the old threads may call
-        # _clear_* after this, but the generation guard will be in effect.
-        self._scan_generation += 1
+    # -------------------------------------------------------------------------
+    # Template-based path map
+    # -------------------------------------------------------------------------
+
+    def refresh_path_map(self):
+        """Invalidates the templates cache so the next populate reloads from disk."""
+        self._templates_file_mtime = 0.0
         self._remote_task_path_map = {}
         self._local_task_path_map = {}
-        self._remote_scan_thread = None
-        self._local_scan_thread = None
-        self._remote_scan_worker = None
-        self._local_scan_worker = None
-        self._start_context_scan()
 
-    def _start_context_scan(self):
-        """Start background .gazu_context scans for remote and (optionally) local roots."""
-        project_name = self.project_data.get("name", "") if self.project_data else ""
-        if not project_name:
+    def _load_templates(self) -> list:
+        """
+        Loads templates.json from the VPN server path (single source of truth).
+        Cached by file mtime – only re-reads when the file changes.
+        Returns an empty list with a warning log if the file is missing.
+        """
+        if not self.remote_address or not self.project_data:
+            return []
+        project_name = self.project_data.get("name", "")
+        templates_path = os.path.join(
+            self.remote_address, project_name, ".gazu", "templates", "templates.json"
+        )
+        try:
+            mtime = os.path.getmtime(templates_path)
+        except OSError:
+            if self._templates:
+                return self._templates  # serve stale cache if server temporarily unreachable
+            self._log(
+                f"templates.json not found – path coloring unavailable: {templates_path}",
+                ui_utils.COLOR_WARNING,
+            )
+            return []
+        if mtime != self._templates_file_mtime:
+            try:
+                with open(templates_path, "r", encoding="utf-8") as fh:
+                    self._templates = json.load(fh)
+                self._templates_file_mtime = mtime
+                self._log(
+                    f"Loaded {len(self._templates)} template(s) from server.",
+                    ui_utils.COLOR_INFO,
+                )
+            except Exception as e:
+                self._log(f"Failed to read templates.json: {e}", ui_utils.COLOR_WARNING)
+        return self._templates
+
+    def _resolve_template_path(self, template_string: str, task: dict) -> str:
+        """
+        Resolves {placeholder} tokens in a template string to a relative OS path.
+        Empty segments (e.g. {episode} on a non-tvshow project) are dropped.
+        """
+        project_type = (self.project_data.get("production_type") or "").lower()
+        replacements = {
+            "project_name":    self.project_data.get("name", ""),
+            "asset_type":      task.get("entity_type_name") or "",
+            "episode":         task.get("episode_name") if project_type == "tvshow" else "",
+            "sequence":        task.get("sequence_name") if project_type in ("tvshow", "featurefilm", "short") else "",
+            "entity":          task.get("entity_name") or "",
+            "task_type":       task.get("task_type_name") or "",
+            "task_type_short": task.get("task_type_short_name") or task.get("task_type_name") or "",
+        }
+        resolved = re.sub(
+            r"\{(\w+)\}",
+            lambda m: replacements.get(m.group(1), m.group(0)),
+            template_string,
+        )
+        # Normalise to OS-native separators and drop empty segments
+        parts = [p for p in resolved.replace("\\", "/").split("/") if p]
+        return os.path.join(*parts) if parts else ""
+
+    def _build_path_map(self, tasks: list):
+        """
+        Builds task_id → path maps from templates.json + task metadata.
+        No filesystem walk – pure JSON + string operations + os.path.isdir on
+        local paths only.
+        """
+        templates = self._load_templates()
+        if not templates:
+            self._remote_task_path_map = {}
+            self._local_task_path_map = {}
             return
-        if self.remote_address:
-            remote_root = os.path.join(self.remote_address, project_name)
-            self._log(f"Remote root resolved: {remote_root}  exists={os.path.isdir(remote_root)}", ui_utils.COLOR_INFO)
-            self._launch_scan(remote_root, is_local=False)
-        if self.local_address:
-            local_root = os.path.join(self.local_address, project_name)
-            self._log(f"Local root resolved:  {local_root}  exists={os.path.isdir(local_root)}", ui_utils.COLOR_INFO)
-            self._launch_scan(local_root, is_local=True)
 
-    def _launch_scan(self, scan_root: str, is_local: bool):
-        label = "local" if is_local else "remote"
-        if not os.path.isdir(scan_root):
-            self._log(f"Project folder not found ({label}): {scan_root}", ui_utils.COLOR_WARNING)
-            return
+        tmpl_by_name = {
+            t["name"]: t
+            for t in templates
+            if t.get("name") and t.get("template")
+        }
 
-        self._log(f"Scanning {label} task folders: {scan_root}", ui_utils.COLOR_INFO)
+        local_map: dict = {}
+        remote_map: dict = {}
 
-        worker = ContextScanWorker(scan_root)
-        thread = QThread()
-        worker.moveToThread(thread)
+        for task in tasks:
+            task_id = task.get("id", "")
+            task_type_name = task.get("task_type_name", "")
+            task_type_short = task.get("task_type_short_name") or task_type_name
+            tmpl = tmpl_by_name.get(task_type_name)
+            if not tmpl:
+                if self.debug_mode:
+                    self._log(
+                        f"  [path] NO TEMPLATE for task_type_name='{task_type_name}' "
+                        f"task_id={task_id[:8]}",
+                        ui_utils.COLOR_WARNING,
+                    )
+                continue
+            rel_path = self._resolve_template_path(tmpl["template"], task)
+            if not rel_path:
+                continue
 
-        # Capture generation at launch time; callbacks discard results from
-        # old scans that were cancelled but finished after a restart.
-        captured_gen = self._scan_generation
-        finished_slot = self._on_local_scan_finished if is_local else self._on_remote_scan_finished
-        clear_slot = self._clear_local_scan_thread if is_local else self._clear_remote_scan_thread
+            if self.remote_address:
+                remote_map[task_id] = os.path.join(self.remote_address, rel_path)
 
-        def _guarded_finished(path_map: dict):
-            if self._scan_generation == captured_gen:
-                finished_slot(path_map)
+            if self.local_address:
+                local_full = os.path.join(self.local_address, rel_path)
+                found = os.path.isdir(local_full)
+                if self.debug_mode:
+                    self._log(
+                        f"  [path] {task_type_name} ({task_type_short}) | rel={rel_path} | "
+                        f"local={local_full} | found={found}",
+                        ui_utils.COLOR_SUCCESS if found else ui_utils.COLOR_WARNING,
+                    )
+                if found:
+                    local_map[task_id] = local_full
 
-        def _guarded_clear():
-            if self._scan_generation == captured_gen:
-                clear_slot()
+        self._remote_task_path_map = remote_map
+        self._local_task_path_map = local_map
 
-        thread.started.connect(worker.run)
-        worker.progress.connect(lambda msg: self._log(msg, ui_utils.COLOR_WARNING))
-        worker.finished.connect(_guarded_finished)
-        worker.finished.connect(thread.quit)
-        worker.finished.connect(worker.deleteLater)
-        thread.finished.connect(thread.deleteLater)
-        thread.finished.connect(_guarded_clear)
-
-        if is_local:
-            self._local_scan_thread = thread
-            self._local_scan_worker = worker   # prevent GC
-        else:
-            self._remote_scan_thread = thread
-            self._remote_scan_worker = worker  # prevent GC
-        thread.start()
-
-    def _clear_remote_scan_thread(self):
-        self._remote_scan_thread = None
-        self._remote_scan_worker = None
-
-    def _clear_local_scan_thread(self):
-        self._local_scan_thread = None
-        self._local_scan_worker = None
-
-    def _on_remote_scan_finished(self, path_map: dict):
-        self._remote_task_path_map = path_map
-        self._log(f"Remote scan complete – {len(path_map)} task folder(s) found.", ui_utils.COLOR_SUCCESS)
-        if self.debug_mode:
-            for tid, fpath in path_map.items():
-                self._log(f"  [remote] {tid}  →  {fpath}", ui_utils.COLOR_INFO)
-        self._apply_path_coloring(source="remote_scan")
-
-    def _on_local_scan_finished(self, path_map: dict):
-        self._local_task_path_map = path_map
-        self._log(f"Local scan complete – {len(path_map)} task folder(s) synced.", ui_utils.COLOR_SUCCESS)
-        if self.debug_mode:
-            for tid, fpath in path_map.items():
-                self._log(f"  [local]  {tid}  →  {fpath}", ui_utils.COLOR_INFO)
-        self._apply_path_coloring(source="local_scan")
+        synced = len(local_map)
+        total = len(remote_map)
+        self._log(
+            f"Path map built – {synced}/{total} task folder(s) synced locally.",
+            ui_utils.COLOR_SUCCESS,
+        )
 
     # -------------------------------------------------------------------------
     # Logging
@@ -495,6 +477,11 @@ class RemoteTasksWidget(QtWidgets.QWidget):
         self.hierarchy_cache = {}
 
         self.task_model.setHorizontalHeaderLabels(["Name", "Type", "Status"])
+        hdr = self.tasks_tree_view.header()
+        hdr.setSectionResizeMode(0, QtWidgets.QHeaderView.Fixed)
+        hdr.setSectionResizeMode(1, QtWidgets.QHeaderView.Fixed)
+        self.tasks_tree_view.setColumnWidth(0, 200)
+        self.tasks_tree_view.setColumnWidth(1, 80)
         root = self.task_model.invisibleRootItem()
         project_type = self.project_data.get("production_type", "").lower()
 
@@ -539,9 +526,11 @@ class RemoteTasksWidget(QtWidgets.QWidget):
 
             type_item = QStandardItem("Task")
             type_item.setEditable(False)
+            type_item.setTextAlignment(Qt.AlignCenter)
 
             status_item = QStandardItem(task_status)
             status_item.setEditable(False)
+            status_item.setTextAlignment(Qt.AlignCenter)
             if task_color:
                 status_item.setForeground(QBrush(QColor(task_color)))
 
@@ -555,14 +544,11 @@ class RemoteTasksWidget(QtWidgets.QWidget):
                 self._handle_thumbnail_caching_for_item(preview_file_id, parent_item)
 
         self._sort_tree(root)
-        self.tasks_tree_view.expandAll()
-        self.tasks_tree_view.resizeColumnToContents(0)
-        # Only color if at least one scan has already finished; otherwise leave
-        # items in default (white) color and let the scan-finished slot color them.
-        if self._local_task_path_map or self._remote_task_path_map:
-            self._apply_path_coloring(source="populate")
-        else:
-            self._log("Path coloring deferred – context scans still running.", ui_utils.COLOR_INFO)
+        # Expand only top-level items (Episode / Asset Type); task rows stay collapsed
+        for i in range(root.rowCount()):
+            self.tasks_tree_view.expand(self.task_model.indexFromItem(root.child(i)))
+        self._build_path_map(tasks)
+        self._apply_path_coloring(source="populate")
 
     def _apply_path_coloring(self, source: str = ""):
         """Re-color the tree. Called after scan completes or after populate (if maps ready)."""
@@ -640,13 +626,13 @@ class RemoteTasksWidget(QtWidgets.QWidget):
 
     def _is_task_synced(self, task_id: str) -> bool:
         """
-        True when the task folder is considered available:
-          - local_address configured → must be found in the local scan
-          - local_address not set    → found in the remote scan (test/fallback)
+        True when the task folder exists locally.
+        Always checks local_task_path_map (folders confirmed via os.path.isdir).
+        If local_address is not configured the user has no local drive → not synced.
         """
         if self.local_address:
             return task_id in self._local_task_path_map
-        return task_id in self._remote_task_path_map
+        return False
 
     # -------------------------------------------------------------------------
     # Hierarchy helpers
@@ -666,6 +652,7 @@ class RemoteTasksWidget(QtWidgets.QWidget):
 
                 placeholder_type = QStandardItem(level_type)
                 placeholder_type.setEditable(False)
+                placeholder_type.setTextAlignment(Qt.AlignCenter)
                 placeholder_status = QStandardItem("")
                 placeholder_status.setEditable(False)
 
@@ -833,7 +820,15 @@ class RemoteTasksWidget(QtWidgets.QWidget):
 
         proxy_root = self.dir_proxy.mapFromSource(root_index)
         self.directories_tree_view.setRootIndex(proxy_root)
-        self.directories_tree_view.expandToDepth(0)
+
+        def _expand_once(path):
+            self.directories_tree_view.expandToDepth(0)
+            try:
+                self.dir_model.directoryLoaded.disconnect(_expand_once)
+            except RuntimeError:
+                pass
+
+        self.dir_model.directoryLoaded.connect(_expand_once)
 
     # -------------------------------------------------------------------------
     # Directory selection -> populate files table
@@ -1224,13 +1219,6 @@ class RemoteTasksWidget(QtWidgets.QWidget):
             except (TypeError, RuntimeError):
                 pass
         self.thumbnail_thread_pool.clear()
-        for _scan_thread in (self._remote_scan_thread, self._local_scan_thread):
-            if _scan_thread is not None:
-                try:
-                    _scan_thread.quit()
-                    _scan_thread.wait(2000)
-                except RuntimeError:
-                    pass
 
 
 # ---------------------------------------------------------------------------

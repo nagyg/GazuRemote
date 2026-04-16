@@ -330,7 +330,15 @@ class RemoteLoginView(QtWidgets.QWidget):
 
         # Load saved remote address for this project (block signal to avoid double validation)
         project_id = project_data.get("id", "")
+        project_name = project_data.get("name", "")
         saved_address = self.config_service.load_remote_address(project_id)
+        # Normalise: strip trailing project-name segment if mistakenly included
+        if project_name and saved_address:
+            normalised = saved_address.rstrip("\\/")
+            if normalised.lower().endswith(os.sep + project_name.lower()) or \
+               normalised.lower().endswith("/" + project_name.lower()):
+                saved_address = normalised[: -(len(os.sep) + len(project_name))]
+                self.config_service.save_remote_address(project_id, saved_address)
         if self.remoteAddressLineEdit:
             self.remoteAddressLineEdit.blockSignals(True)
             self.remoteAddressLineEdit.setText(saved_address)
@@ -461,13 +469,15 @@ class RemoteLoginView(QtWidgets.QWidget):
             self._remote_path_check_thread = None
             self._remote_path_check_worker = None
 
+        project_name = self.project_data.get("name", "") if self.project_data else ""
+        remote_project_path = str(Path(remote_address) / project_name) if project_name else remote_address
         self.log_to_console(
-            f"Checking remote address: {remote_address} ...",
+            f"Checking remote project path: {remote_project_path} ...",
             ui_utils.COLOR_INFO
         )
 
         self._remote_path_check_thread = QThread()
-        self._remote_path_check_worker = PathCheckWorker(remote_address)
+        self._remote_path_check_worker = PathCheckWorker(remote_project_path)
         self._remote_path_check_worker.moveToThread(self._remote_path_check_thread)
 
         self._remote_path_check_thread.started.connect(self._remote_path_check_worker.run)
@@ -485,14 +495,14 @@ class RemoteLoginView(QtWidgets.QWidget):
             self.refreshMountButton.setEnabled(True)
         if accessible:
             self.log_to_console(
-                f"✔  Remote address accessible: {path_checked}",
+                f"✔  Remote project path accessible: {path_checked}",
                 ui_utils.COLOR_SUCCESS
             )
             if self.loginButton:
                 self.loginButton.setEnabled(True)
         else:
             self.log_to_console(
-                f"✖  Remote address NOT accessible: {path_checked}",
+                f"✖  Remote project path NOT accessible: {path_checked}",
                 ui_utils.COLOR_ERROR
             )
             if self.loginButton:

@@ -64,6 +64,7 @@ class RemoteMainView(QtWidgets.QMainWindow):
         self.role_line_edit = self._fw(QtWidgets.QLineEdit, "roleLineEdit")
         self.remote_mount_line_edit = self._fw(QtWidgets.QLineEdit, "remoteMountLineEdit")
         self.local_mount_line_edit = self._fw(QtWidgets.QLineEdit, "localMountLineEdit")
+        self.project_line_edit = self._fw(QtWidgets.QLineEdit, "projectLineEdit")
         self.thumbnail_label = self._fw(QtWidgets.QLabel, "thumbnailLabel")
         self.filter_line_edit = self._fw(QtWidgets.QLineEdit, "filterLineEdit")
         self.status_combo_box = self._fw(QtWidgets.QComboBox, "statusComboBox")
@@ -119,10 +120,14 @@ class RemoteMainView(QtWidgets.QMainWindow):
             self.remote_mount_line_edit.setText(self.remote_address)
         if self.local_mount_line_edit:
             self.local_mount_line_edit.setText(self.local_address)
+        if self.project_line_edit:
+            project_name = self.project_data.get("name", "") if self.project_data else ""
+            self.project_line_edit.setText(project_name)
+            self.project_line_edit.setFocusPolicy(QtCore.Qt.NoFocus)
 
         # Done combo
         if self.done_combo_box:
-            self.done_combo_box.addItems(["Active Only", "Include Done"])
+            self.done_combo_box.addItems(["Hide", "Visible"])
 
         # Button connections
         if self.refresh_button:
@@ -279,10 +284,10 @@ class RemoteMainView(QtWidgets.QMainWindow):
     # -------------------------------------------------------------------------
 
     def _on_refresh_clicked(self):
-        """Refreshes the task list from Kitsu and re-scans local/remote folders."""
-        self._load_tasks()
+        """Refreshes the task list from Kitsu and invalidates the template path cache."""
         if hasattr(self, "tasks_widget"):
-            self.tasks_widget.restart_context_scan()
+            self.tasks_widget.refresh_path_map()
+        self._load_tasks()
 
     def _on_filter_changed(self):
         """Re-applies filters without re-fetching from API."""
