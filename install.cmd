@@ -8,6 +8,7 @@ SET "SCRIPT_DIR=%~dp0"
 SET "PYTHON_DIR=%SCRIPT_DIR%Python312"
 SET "PYTHON=%PYTHON_DIR%\python.exe"
 SET "PIP=%PYTHON_DIR%\Scripts\pip.exe"
+SET "ZIP=%SCRIPT_DIR%Python312_clean.zip"
 
 echo ============================================================
 echo  GazuRemote Installer
@@ -20,37 +21,31 @@ IF EXIST "%PYTHON%" (
     goto :install_deps
 )
 
-echo [INFO] Python312 not found in: %PYTHON_DIR%
-echo.
-echo  Option A: Copy the bundled Python from the main Gazu installation.
-echo            Source: %%WORKGROUP%%\Gazu\Python312
-echo.
-echo  Option B: Download Python 3.12 from https://www.python.org/downloads/
-echo            and install it into the Python312 subfolder of this directory.
-echo.
+echo [INFO] Python312 not found. Extracting bundled environment...
 
-REM --- Try to copy from sibling Gazu installation ---
-IF DEFINED WORKGROUP (
-    SET "GAZU_PYTHON=%WORKGROUP%\Gazu\Python312"
-    IF EXIST "%GAZU_PYTHON%\python.exe" (
-        echo [INFO] Found Gazu Python at: %GAZU_PYTHON%
-        echo [INFO] Copying to: %PYTHON_DIR%
-        xcopy /E /I /Y "%GAZU_PYTHON%" "%PYTHON_DIR%"
-        echo [OK] Python copied successfully.
+REM --- Extract from bundled zip ---
+IF EXIST "%ZIP%" (
+    powershell -NoProfile -Command "Expand-Archive -Path '%ZIP%' -DestinationPath '%PYTHON_DIR%' -Force"
+    IF EXIST "%PYTHON%" (
+        echo [OK] Python extracted to: %PYTHON_DIR%
         goto :install_deps
+    ) ELSE (
+        echo [ERROR] Extraction failed.
+        pause
+        exit /b 1
     )
 )
 
-echo [ERROR] Could not locate Python312. Please install manually (see instructions above).
-echo         Then re-run this script.
+echo [ERROR] Python312_clean.zip not found at: %ZIP%
+echo         Please re-clone the repository or download the zip manually.
 pause
 exit /b 1
 
 :install_deps
 echo.
-echo [INFO] Installing / updating dependencies from requirements.txt...
-"%PIP%" install --upgrade pip --quiet
-"%PIP%" install -r "%SCRIPT_DIR%requirements.txt"
+echo [INFO] Installing dependencies from requirements.txt...
+"%PYTHON%" -m pip install --upgrade pip --quiet
+"%PYTHON%" -m pip install -r "%SCRIPT_DIR%requirements.txt"
 
 IF %ERRORLEVEL% NEQ 0 (
     echo [ERROR] Dependency installation failed.
