@@ -106,13 +106,13 @@ def _format_context_display(gazu_data, path_prefs=None):
     # --- Paths ---
     lines.append("[ Paths ]")
     lines.append("")
-    lines.append(f"  Mountpoint :  {v('project_mountpoint')}")
+    lines.append(f"  Mountpoint     :  {v('project_mountpoint')}")
     if path_prefs:
         gazu_keys = {k.rstrip(':'): pv
                      for k, pv in path_prefs.items()
                      if 'Gazu' in k and k.rstrip(':') != 'project_mountpoint'}
         for pk in sorted(gazu_keys):
-            lines.append(f"  {pk:<12} :  {gazu_keys[pk]}")
+            lines.append(f"  {pk:<14} :  {gazu_keys[pk]}")
     lines.append("")
 
     # --- IDs ---
@@ -136,7 +136,7 @@ def _format_context_display(gazu_data, path_prefs=None):
         lines.append("")
         for k, val in sorted(all_ed.items()):
             clean = str(k).replace(" ", "_").replace("-", "_")
-            lines.append(f"  {clean:<10} :  {val}")
+            lines.append(f"  {clean:<14} :  {val}")
         # lines.append("")
         # lines.append("  -- expressions help--")
         # lines.append('  comp:GetData("Gazu.<key>")')
