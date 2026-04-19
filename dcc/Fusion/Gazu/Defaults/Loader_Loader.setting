@@ -1,0 +1,21 @@
+{
+	Tools = ordered() {
+		Loader1 = Loader {
+			Clips = {
+			},
+			CtrlWZoom = false,
+			UserControls = ordered() {
+				GazuFilename = {
+					LINKS_Name = "Gazu Filename",
+					LINKID_DataType = "Text",
+					INPID_InputControl = "TextEditControl",
+					TEC_Lines = 1,
+					TEC_Wrap = false,
+					TEC_ReadOnly = false,
+					ICS_ControlPage = "File",
+					INP_External = false,
+				}
+			}
+		}
+	}
+}

@@ -1,0 +1,12 @@
+{
+	Global = {
+		Paths = {
+			Map = {
+				["GazuData:"] = "",
+				["LocalData:"] = "",
+				["UserPaths:"] = "AllData:;Fusion:;LocalData:;GazuData:",
+			}
+		},
+	},
+	Locked = true,
+}

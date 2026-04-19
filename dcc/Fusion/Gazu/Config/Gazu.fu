@@ -1,0 +1,88 @@
+{
+	Action
+	{
+		ID = "Gazu_SaveCompVersionUp",
+		Category = "Gazu",
+		Name = "Save Comp Version Up",
+
+		Targets =
+		{
+			Composition =
+			{
+				Execute = _Lua [=[
+					fusion:GetCurrentComp():RunScript("Scripts:/Comp/Gazu/Save Comp Version Up.py")
+				]=],
+			},
+		},
+	},
+	Action
+	{
+		ID = "Gazu_UpdateAllFileName",
+		Category = "Gazu",
+		Name = "Update All FileName",
+
+		Targets =
+		{
+			Composition =
+			{
+				Execute = _Lua [=[
+					fusion:GetCurrentComp():RunScript("Scripts:/Comp/Gazu/Update All FileName.py")
+				]=],
+			},
+		},
+	},
+	Action
+	{
+		ID = "Gazu_ReloadContext",
+		Category = "Gazu",
+		Name = "Context Reload",
+
+		Targets =
+		{
+			Composition =
+			{
+				Execute = _Lua [=[
+					fusion:GetCurrentComp():RunScript("Scripts:/Comp/Gazu/Context/Reload.py")
+				]=],
+			},
+		},
+	},
+	Action
+	{
+		ID = "Gazu_ShowContext",
+		Category = "Gazu",
+		Name = "Show current Comp file Context",
+
+		Targets =
+		{
+			Composition =
+			{
+				Execute = _Lua [=[
+					fusion:GetCurrentComp():RunScript("Scripts:/Comp/Gazu/Context/Show.py")
+				]=],
+			},
+		},
+	},
+	Menus
+	{
+		Target = "ChildFrame",
+
+		Before "Help"
+		{
+			Sub "Gazu"
+			{
+				"Gazu_ReloadContext{}",
+				"_",
+				"Gazu_SaveCompVersionUp{}",
+				"Gazu_UpdateAllFileName{}",
+				"_",
+				"Gazu_ShowContext{}",
+			},
+		},
+	},
+	Hotkeys
+	{
+		Target = "FlowView",
+		SHIFT_S = "Gazu_SaveCompVersionUp{}",
+	},
+}

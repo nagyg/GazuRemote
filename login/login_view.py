@@ -154,6 +154,7 @@ class RemoteLoginView(QtWidgets.QWidget):
             self.projectComboBox.currentIndexChanged.connect(self.on_project_selection_change)
         if self.remoteAddressLineEdit:
             self.remoteAddressLineEdit.textChanged.connect(self._on_remote_address_text_changed)
+            self.remoteAddressLineEdit.returnPressed.connect(self._validate_mount_points)
         if self.refreshMountButton:
             self.refreshMountButton.clicked.connect(self._validate_mount_points)
 
@@ -451,9 +452,13 @@ class RemoteLoginView(QtWidgets.QWidget):
         # Now validate remote address if provided
         remote_address = self.remoteAddressLineEdit.text().strip() if self.remoteAddressLineEdit else ""
         if not remote_address:
-            # No remote address — allow opening without it
+            # Remote address is required — do not allow opening without it
+            self.log_to_console(
+                "Server Address is required. Please enter the remote server path.",
+                ui_utils.COLOR_WARNING
+            )
             if self.loginButton:
-                self.loginButton.setEnabled(True)
+                self.loginButton.setEnabled(False)
             if self.refreshMountButton:
                 self.refreshMountButton.setEnabled(True)
             return
@@ -509,10 +514,9 @@ class RemoteLoginView(QtWidgets.QWidget):
                 self.loginButton.setEnabled(False)
 
     def _on_remote_address_text_changed(self, text):
-        """Debounces path validation while the user is typing."""
+        """Disables the login button while the user is typing. Validation runs on Enter or Refresh."""
         if self.loginButton:
             self.loginButton.setEnabled(False)
-        self._path_check_debounce.start(400)
 
     # -------------------------------------------------------------------------
     # Credential management

@@ -1,0 +1,41 @@
+{
+	Tools = ordered() {
+		GazuSaver1 = Saver {
+			CtrlWZoom = false,
+			NameSet = true,
+			Inputs = {
+				ProcessWhenBlendIs00 = Input { Value = 0, },
+				Clip = Input {
+					Value = Clip {
+						Length = 0,
+						Saving = true,
+						TrimIn = 0,
+						ExtendFirst = 0,
+						ExtendLast = 0,
+						Loop = 1,
+						AspectMode = 0,
+						Depth = 0,
+						TimeCode = 0,
+						GlobalStart = -2000000000,
+						GlobalEnd = 0
+					},
+				},
+				OutputFormat = Input { Value = FuID { "OpenEXRFormat" }, },
+				["OpenEXRFormat.ZipCompressionLevel"] = Input { Value = 4, },
+				GazuFilename = Input { Value = "GazuShotPath:\\comp\\output\\{Project}_{Sequence}_{Shot}_{Version}\\{Project}_{Sequence}_{Shot}_{Version}.{frame_in}.exr", }
+			},
+			UserControls = ordered() {
+				GazuFilename = {
+					LINKS_Name = "Gazu Filename",
+					LINKID_DataType = "Text",
+					INPID_InputControl = "TextEditControl",
+					TEC_Lines = 1,
+					TEC_Wrap = false,
+					TEC_ReadOnly = false,
+					ICS_ControlPage = "File",
+					INP_External = false,
+				}
+			}
+		}
+	}
+}

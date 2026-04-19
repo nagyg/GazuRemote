@@ -10,10 +10,26 @@ Designed for artists working **outside the studio** over a VPN connection.
 - Lets you add comments / feedback directly to Kitsu
 - Allows publishing preview files to Kitsu tasks
 - Validates local mount point against the studio's project structure
+- Browses local task folders (directory tree + file list)
+- Opens DCC files directly from the file browser (Fusion supported)
+
+## DCC Launcher
+
+GazuRemote supports opening DCC files directly from the task file browser by double-clicking a file.
+
+| DCC | Extensions | Status |
+|---|---|---|
+| **Fusion** | `.comp` | ✅ Implemented – `dcc/Fusion/open_fusion.cmd` |
+| Nuke | `.nk`, `.nknc` | 🔲 Not implemented |
+| Houdini | `.hip`, `.hiplc`, `.hipnc` | 🔲 Not implemented |
+
+The Fusion path is configurable via **Settings** (gear icon in the main window).  
+A console window for DCC output can optionally be shown/hidden from the same Settings dialog.
+
+---
 
 ## What it does NOT do
 
-- Launch DCC applications
 - Initialize projects
 - Modify the project file structure
 
@@ -97,26 +113,31 @@ Syncing the project files is the **user's responsibility** (e.g. using `rsync`, 
 
 ```
 GazuRemote/
-├── __main__.py             # Entry point
-├── GazuRemote.exe          # Main launcher (no console)
-├── GazuRemote.cmd          # Debug launcher (console output)
-├── install.cmd             # First-time setup
-├── Python312_clean.zip     # Bundled Python 3.12.10 embeddable + pip
+├── __main__.py                  # Entry point
+├── GazuRemote.exe               # Main launcher (no console)
+├── GazuRemote.cmd               # Debug launcher (console output)
+├── install.cmd                  # First-time setup
+├── Python312_clean.zip          # Bundled Python 3.12.10 embeddable + pip
 ├── requirements.txt
-├── images/                 # App icons and logo
+├── images/                      # App icons and logo
 ├── login/
-│   ├── login_view.py       # Authentication + mount point validation
+│   ├── login_view.py            # Authentication + mount point validation
 │   └── login_window.ui
 ├── main/
-│   ├── main_view.py         # Main window (task list)
+│   ├── main_view.py             # Main window (task list + Settings button)
 │   ├── main_window.ui
-│   ├── remote_tasks_widget.py  # Task tree, publish, feedback
-│   ├── publisher_dialog.py
+│   ├── remote_tasks_widget.py   # 4-panel task tree, dir browser, file list, thumbnail
+│   ├── dcc_launcher.py          # DCC launch dispatcher
+│   ├── app_settings_dialog.py   # Fusion path + Show Console setting
+│   ├── publisher_dialog.py      # Publish dialog
 │   └── publisher_dialog.ui
+├── dcc/
+│   └── Fusion/
+│       └── open_fusion.cmd      # Fusion environment setup + launch
 └── services/
-    ├── gazu_api.py       # Kitsu/Zou API wrapper
-    ├── config_service.py # Config & credentials
-    └── ui_utils.py       # UI helpers & logging
+    ├── gazu_api.py              # Kitsu/Zou API wrapper
+    ├── config_service.py        # Config & credentials
+    └── ui_utils.py              # UI helpers & logging
 ```
 
 ---

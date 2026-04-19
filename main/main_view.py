@@ -73,6 +73,7 @@ class RemoteMainView(QtWidgets.QMainWindow):
         self.refresh_button = self._fw(QtWidgets.QPushButton, "refreshButton")
         self.url_button = self._fw(QtWidgets.QPushButton, "urlButton")
         self.publish_button = self._fw(QtWidgets.QPushButton, "publishButton")
+        self.settings_push_button = self._fw(QtWidgets.QPushButton, "SettingsPushButton")
         self.tasks_tree_view = self._fw(QtWidgets.QTreeView, "tasksTreeView")
         self.directories_tree_view = self._fw(QtWidgets.QTreeView, "directoriesTreeView")
         self.files_table_view = self._fw(QtWidgets.QTableView, "filesTableView")
@@ -136,6 +137,8 @@ class RemoteMainView(QtWidgets.QMainWindow):
             self.url_button.clicked.connect(self._on_url_button_clicked)
         if self.publish_button:
             self.publish_button.clicked.connect(self._on_publish_clicked)
+        if self.settings_push_button:
+            self.settings_push_button.clicked.connect(self._on_settings_clicked)
 
         # Filter
         if self.filter_line_edit:
@@ -319,6 +322,13 @@ class RemoteMainView(QtWidgets.QMainWindow):
             webbrowser.open(url)
         else:
             self.log_to_console("Could not build Kitsu URL.", ui_utils.COLOR_WARNING)
+
+    def _on_settings_clicked(self):
+        """Opens the Application Settings dialog."""
+        from .app_settings_dialog import AppSettingsDialog
+        dlg = AppSettingsDialog(self.config_service, self)
+        dlg.exec()
+        self.activateWindow()
 
     def _on_publish_clicked(self):
         """Toggles the Publisher Manager dialog (show/hide on repeated clicks)."""

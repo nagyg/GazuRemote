@@ -897,15 +897,25 @@ class RemoteTasksWidget(QtWidgets.QWidget):
             self.files_table_view.resizeColumnToContents(2)
 
     def _on_file_double_clicked(self, index):
-        """Opens the file with the default application."""
+        """Opens the file: DCC launch for known extensions, OS default otherwise."""
         if not index.isValid():
             return
         name_item = self.files_model.item(index.row(), 0)
         if not name_item:
             return
         file_path = name_item.data(Qt.UserRole + 1)
-        if file_path and os.path.isfile(file_path):
-            ui_utils.open_file(file_path)
+        if not file_path or not os.path.isfile(file_path):
+            return
+
+        from . import dcc_launcher
+        config_service = getattr(self.main_window, "config_service", None)
+        app_root = getattr(self.main_window, "_app_root", None)
+
+        if config_service and app_root:
+            if dcc_launcher.launch_with_dcc(file_path, config_service, app_root, self._log):
+                return
+
+        ui_utils.open_file(file_path)
 
     def _on_dir_double_clicked(self, index):
         """Opens the selected directory in the system file explorer."""
