@@ -37,13 +37,13 @@ def _gazu_api_call(func):
 
 def load_user_credentials():
     """
-    Loads user credentials from ~/Gazu/user_config.json
+    Loads user credentials from ~/GazuRemote/user_config.json
     Returns (success, credentials_dict) tuple.
     """
     try:
         # Get user home directory
         home_dir = os.path.expanduser("~")
-        config_path = os.path.join(home_dir, "Gazu", "user_config.json")
+        config_path = os.path.join(home_dir, "GazuRemote", "user_config.json")
         
         if not os.path.exists(config_path):
             return False, f"Config file not found: {config_path}"

@@ -2,6 +2,7 @@ import datetime
 import json
 import os
 import re
+import shutil
 import traceback
 import webbrowser
 from pathlib import Path
@@ -11,7 +12,7 @@ from PySide6.QtCore import Qt, QObject, Signal, QThreadPool, QRunnable, QMimeDat
 from PySide6.QtGui import (
     QStandardItemModel, QStandardItem, QBrush, QColor, QFont, QPixmap, QIcon
 )
-from PySide6.QtWidgets import QFileIconProvider
+from PySide6.QtWidgets import QFileIconProvider, QInputDialog, QMessageBox
 
 from services import gazu_api, ui_utils
 from .publisher_dialog import PublisherDialog
@@ -278,10 +279,6 @@ class RemoteTasksWidget(QtWidgets.QWidget):
             self.directories_tree_view.sortByColumn(0, Qt.DescendingOrder)
             self.directories_tree_view.selectionModel().selectionChanged.connect(
                 self.on_directory_selection_changed
-            )
-            self.directories_tree_view.setContextMenuPolicy(Qt.CustomContextMenu)
-            self.directories_tree_view.customContextMenuRequested.connect(
-                self._on_dir_context_menu
             )
             self.directories_tree_view.doubleClicked.connect(self._on_dir_double_clicked)
 
@@ -862,6 +859,8 @@ class RemoteTasksWidget(QtWidgets.QWidget):
 
         for entry in entries:
             if entry.is_file():
+                if any(entry.name.lower().endswith(ext) for ext in ui_utils.HIDDEN_EXTENSIONS):
+                    continue
                 try:
                     stat = entry.stat()
                     size_kb = stat.st_size / 1024
@@ -938,31 +937,6 @@ class RemoteTasksWidget(QtWidgets.QWidget):
         self._reset_files_view()
 
     # -------------------------------------------------------------------------
-    # Directory context menu
-    # -------------------------------------------------------------------------
-
-    def _on_dir_context_menu(self, pos):
-        if not self.directories_tree_view or not hasattr(self, "dir_model"):
-            return
-        proxy_index = self.directories_tree_view.indexAt(pos)
-        if not proxy_index.isValid():
-            return
-        source_index = self.dir_proxy.mapToSource(proxy_index)
-        dir_path = self.dir_model.filePath(source_index)
-        if not dir_path:
-            return
-
-        menu = QtWidgets.QMenu(self)
-        action_open = menu.addAction("Open in Explorer")
-        action_copy = menu.addAction("Copy Path")
-
-        action = menu.exec(self.directories_tree_view.viewport().mapToGlobal(pos))
-        if action == action_open:
-            ui_utils.show_in_explorer(dir_path)
-        elif action == action_copy:
-            QtWidgets.QApplication.clipboard().setText(dir_path)
-
-    # -------------------------------------------------------------------------
     # Files context menu
     # -------------------------------------------------------------------------
 
@@ -980,12 +954,29 @@ class RemoteTasksWidget(QtWidgets.QWidget):
         if not file_path:
             return
 
+        file_name = os.path.basename(file_path)
+
         menu = QtWidgets.QMenu(self)
         action_open = menu.addAction("Open")
         action_reveal = menu.addAction("Show in Explorer")
         action_copy = menu.addAction("Copy Path")
         menu.addSeparator()
-        action_publish = menu.addAction("Publish to Kitsu...")
+        action_rename = menu.addAction("Rename")
+        action_delete = menu.addAction("Delete")
+
+        # Kitsu Publisher – media files only
+        action_publish = None
+        media_extensions = ('.mov', '.mp4', '.jpg', '.png')
+        if file_name.lower().endswith(media_extensions):
+            menu.addSeparator()
+            action_publish = menu.addAction("Publish to Kitsu...")
+
+        # Create Next Version – workfiles only
+        action_version_up = None
+        if any(file_name.lower().endswith(ext) for ext in ui_utils.WORKFILE_EXTENSIONS):
+            if action_publish is None:
+                menu.addSeparator()
+            action_version_up = menu.addAction("Create Next Version")
 
         action = menu.exec(self.files_table_view.viewport().mapToGlobal(pos))
         if action == action_open:
@@ -994,14 +985,112 @@ class RemoteTasksWidget(QtWidgets.QWidget):
             ui_utils.show_in_explorer(file_path)
         elif action == action_copy:
             QtWidgets.QApplication.clipboard().setText(file_path)
-        elif action == action_publish:
+        elif action == action_rename:
+            self._rename_file(file_path)
+        elif action == action_delete:
+            self._delete_file(file_path)
+        elif action_publish and action == action_publish:
             task_data = self._get_selected_task()
             if task_data:
                 self.publish_to_kitsu(task_data, prefill_path=file_path)
+        elif action_version_up and action == action_version_up:
+            self._version_up_file(file_path)
 
     # -------------------------------------------------------------------------
     # Helpers
     # -------------------------------------------------------------------------
+
+    def _get_current_directory_path(self):
+        """Returns the full path of the currently selected directory."""
+        if not self.directories_tree_view or not hasattr(self, "dir_model"):
+            return None
+        indexes = self.directories_tree_view.selectionModel().selectedIndexes()
+        if not indexes:
+            return None
+        source_index = self.dir_proxy.mapToSource(indexes[0])
+        return self.dir_model.filePath(source_index)
+
+    def _refresh_files_view(self):
+        """Re-populates the files table from the currently selected directory."""
+        dir_path = self._get_current_directory_path()
+        if dir_path:
+            self._populate_files(dir_path)
+
+    def _rename_file(self, file_path: str):
+        """Renames a file after user input."""
+        old_name = os.path.basename(file_path)
+        dir_path = os.path.dirname(file_path)
+
+        dialog = QInputDialog(self)
+        dialog.setWindowTitle("Rename File")
+        dialog.setLabelText("New name:")
+        dialog.setTextValue(old_name)
+        dialog.setInputMode(QInputDialog.TextInput)
+        dialog.resize(360, dialog.height())
+
+        if not dialog.exec():
+            return
+        new_name = dialog.textValue().strip()
+        if not new_name or new_name == old_name:
+            return
+
+        new_path = os.path.join(dir_path, new_name)
+        try:
+            os.rename(file_path, new_path)
+            self._log(f"Renamed '{old_name}' → '{new_name}'", ui_utils.COLOR_SUCCESS)
+            self._refresh_files_view()
+        except OSError as e:
+            self._log(f"Rename failed: {e}", ui_utils.COLOR_ERROR)
+
+    def _delete_file(self, file_path: str):
+        """Deletes a file after confirmation."""
+        file_name = os.path.basename(file_path)
+        reply = QMessageBox.warning(
+            self,
+            "Confirm Deletion",
+            f"Are you sure you want to permanently delete '{file_name}'?",
+            QMessageBox.Yes | QMessageBox.No,
+            QMessageBox.No,
+        )
+        if reply != QMessageBox.Yes:
+            return
+        try:
+            os.remove(file_path)
+            self._log(f"Deleted '{file_name}'", ui_utils.COLOR_SUCCESS)
+            self._refresh_files_view()
+        except OSError as e:
+            self._log(f"Delete failed: {e}", ui_utils.COLOR_ERROR)
+
+    def _version_up_file(self, file_path: str):
+        """Creates an incremented copy of a workfile (e.g. _v001 → _v002)."""
+        file_name = os.path.basename(file_path)
+        dir_path = os.path.dirname(file_path)
+
+        matches = list(re.finditer(r"[._]v(\d{3})", file_name))
+        if not matches:
+            self._log(
+                f"No version number found in '{file_name}'. Expected format: '..._v001...'",
+                ui_utils.COLOR_WARNING,
+            )
+            return
+
+        match = matches[-1]
+        prefix_char = match.group(0)[0]
+        next_ver = int(match.group(1)) + 1
+        new_ver_str = f"{prefix_char}v{next_ver:03d}"
+        new_name = file_name[: match.start()] + new_ver_str + file_name[match.end():]
+        new_path = os.path.join(dir_path, new_name)
+
+        if os.path.exists(new_path):
+            self._log(f"Version already exists: {new_name}", ui_utils.COLOR_WARNING)
+            return
+
+        try:
+            shutil.copy2(file_path, new_path)
+            self._log(f"Created next version: {new_name}", ui_utils.COLOR_SUCCESS)
+            self._refresh_files_view()
+        except OSError as e:
+            self._log(f"Version up failed: {e}", ui_utils.COLOR_ERROR)
 
     def _get_selected_task(self):
         indexes = self.tasks_tree_view.selectedIndexes()

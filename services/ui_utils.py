@@ -17,6 +17,16 @@ COLOR_DEBUG = "#FF00FF"
 COLOR_NEW_TASK = "#14CE14"
 COLOR_XFER = "#64B5F6"
 
+WORKFILE_EXTENSIONS = [
+    '.ma', '.mb', '.hip', '.blend', '.nk', '.comp', '.aep',
+    '.psd', '.psb', '.usd', '.usda', '.usdc', '.usdz',
+    '.abc', '.mtlx', '.sdf',
+]
+HIDDEN_EXTENSIONS = [
+    '.autosave', '.autosavet', '.autocomp', '.nk~', '.blend1',
+    '.db', '.backup', '.bac', '.bak', '.tmp',
+]
+
 
 def position_next_to_parent(dialog: QtWidgets.QDialog, parent: QtWidgets.QWidget):
     """
