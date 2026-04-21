@@ -18,7 +18,7 @@ set GAZULIB=%PYTHON_ROOT%\Gazu\Lib;%PYTHON_ROOT%\Gazu\scripts
 set PYTHONPATH=%GAZULIB%
 
 :: Nuke PATH
-set NUKE_PATH=%NUKE_PLUGINS%\Gazu;%NUKE_PLUGINS%\Plugins
+set NUKE_PATH=%NUKE_PLUGINS%\Gazu;%NUKE_PLUGINS%\Plugins;%NUKE_PATH%
 
 :: Nuke exe : "Nuke17.0v1" or "Nuke 17.0v1" -> "Nuke17.0.exe"
 for %%I in ("%NUKE_ROOT%") do set "_NUKE_BASENAME=%%~nxI"
