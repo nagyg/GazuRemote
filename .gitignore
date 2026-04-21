@@ -13,12 +13,9 @@ user_config.json
 
 # Bundled Python runtime (large binary – distribute separately)
 Python312/*
-# The clean embeddable zip IS committed (14 MB, no packages)
-!Python312_clean.zip
-# The Gazu folder IS committed (contains Lib.zip and scripts)
+# The Gazu folder IS committed (contains scripts only – Lib/ is pip-installed at runtime)
 !Python312/Gazu/
 Python312/Gazu/*
-!Python312/Gazu/Lib.zip
 !Python312/Gazu/scripts/
 
 # Gazu Lib (extracted at install time from Python312/Gazu/Lib.zip)

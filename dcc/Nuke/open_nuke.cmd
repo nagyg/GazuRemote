@@ -6,6 +6,11 @@ if not defined NUKE_ROOT set "NUKE_ROOT=C:\Program Files\Nuke17.0v1"
 
 set GAZUREMOTE_ROOT=%~dp0..\..\
 
+
+:: Nuke License
+set foundry_LICENSE=4101@10.0.0.35
+
+
 :: Profiles
 set HOME=%USERPROFILE%\GazuRemote\dcc\nuke
 set NUKE_PLUGINS=%GAZUREMOTE_ROOT%\dcc\Nuke

@@ -9,8 +9,8 @@ SET "PYTHON_DIR=%SCRIPT_DIR%Python312"
 SET "PYTHON=%PYTHON_DIR%\python.exe"
 SET "PIP=%PYTHON_DIR%\Scripts\pip.exe"
 SET "ZIP=%SCRIPT_DIR%Python312_clean.zip"
-SET "LIB_ZIP=%SCRIPT_DIR%Python312\Gazu\Lib.zip"
 SET "GAZU_DIR=%SCRIPT_DIR%Python312\Gazu"
+SET "GAZU_LIB=%GAZU_DIR%\Lib"
 
 echo ============================================================
 echo  GazuRemote Installer
@@ -57,18 +57,23 @@ IF %ERRORLEVEL% NEQ 0 (
 )
 
 echo.
-echo [INFO] Refreshing Gazu Lib bundle...
-IF NOT EXIST "%LIB_ZIP%" (
-    echo [ERROR] Gazu Lib bundle not found at: %LIB_ZIP%
+echo [INFO] Installing Gazu DCC dependencies...
+IF EXIST "%GAZU_LIB%" (
+    echo [INFO] Removing old Gazu Lib...
+    rmdir /s /q "%GAZU_LIB%"
+)
+mkdir "%GAZU_LIB%"
+
+"%PYTHON%" -m pip install --target "%GAZU_LIB%" -r "%SCRIPT_DIR%gazu_dcc_requirements.txt" --no-warn-script-location
+
+IF %ERRORLEVEL% NEQ 0 (
+    echo [ERROR] Gazu DCC dependency installation failed.
     pause
     exit /b 1
 )
 
-powershell -NoProfile -Command "if (Test-Path '%GAZU_DIR%\Lib') { Remove-Item '%GAZU_DIR%\Lib' -Recurse -Force }"
-powershell -NoProfile -Command "Expand-Archive -Path '%LIB_ZIP%' -DestinationPath '%GAZU_DIR%' -Force"
-
-IF NOT EXIST "%GAZU_DIR%\Lib\gazu" (
-    echo [ERROR] Gazu bundle extraction failed.
+IF NOT EXIST "%GAZU_LIB%\gazu" (
+    echo [ERROR] Gazu package not found after install.
     pause
     exit /b 1
 )

@@ -1,0 +1,17 @@
+gazu
+requests
+certifi
+charset-normalizer
+idna
+urllib3
+python-socketio
+python-engineio
+websocket-client
+simple-websocket
+wsproto
+h11
+bidict
+deprecated
+wrapt
+typing_extensions
+pywin32
