@@ -61,7 +61,7 @@ install.cmd
 ```
 
 The script will:
-- Extract the bundled `Python312_clean.zip` (Python 3.12.10 embeddable + pip)
+- Extract the bundled `Python312.zip` (Python 3.12.10 embeddable + pip)
 - Install desktop UI dependencies (`PySide6`) from `requirements.txt`
 - Extract the bundled `Python312\Gazu.zip` → `Python312\Gazu\` (Kitsu API stack: `gazu`, `requests`, `socketio`, `pywin32`, etc.)
 
@@ -118,14 +118,14 @@ GazuRemote/
 ├── GazuRemote.exe               # Main launcher (no console)
 ├── GazuRemote.cmd               # Debug launcher (console output)
 ├── install.cmd                  # First-time setup
-├── Python312_clean.zip          # Bundled Python 3.12.10 embeddable + pip
+├── Python312.zip                # Bundled Python 3.12.10 embeddable + pip
 ├── requirements.txt             # PySide6 only (Kitsu API stack bundled separately)
+├── requirements_dcc.txt         # Gazu only for DCC
 ├── images/                      # App icons and logo
 ├── Python312/                   # Extracted at install time (gitignored)
 │   ├── python.exe               # Python 3.12.10
 │   ├── Lib/site-packages/       # PySide6 and other desktop deps
-│   ├── Gazu.zip                 # Kitsu API stack archive (committed)
-│   └── Gazu/                   # Extracted at install time (gitignored)
+│   └── Gazu/                    # Extracted at install time (gitignored)
 │       ├── Lib/                 # gazu, requests, certifi, socketio, pywin32, etc.
 │       └── scripts/             # gazu_api.py
 ├── login/

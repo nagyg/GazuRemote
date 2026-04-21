@@ -8,7 +8,7 @@ SET "SCRIPT_DIR=%~dp0"
 SET "PYTHON_DIR=%SCRIPT_DIR%Python312"
 SET "PYTHON=%PYTHON_DIR%\python.exe"
 SET "PIP=%PYTHON_DIR%\Scripts\pip.exe"
-SET "ZIP=%SCRIPT_DIR%Python312_clean.zip"
+SET "ZIP=%SCRIPT_DIR%Python312.zip"
 SET "GAZU_DIR=%SCRIPT_DIR%Python312\Gazu"
 SET "GAZU_LIB=%GAZU_DIR%\Lib"
 
@@ -38,7 +38,7 @@ IF EXIST "%ZIP%" (
     )
 )
 
-echo [ERROR] Python312_clean.zip not found at: %ZIP%
+echo [ERROR] Python312.zip not found at: %ZIP%
 echo         Please re-clone the repository or download the zip manually.
 pause
 exit /b 1
@@ -64,7 +64,7 @@ IF EXIST "%GAZU_LIB%" (
 )
 mkdir "%GAZU_LIB%"
 
-"%PYTHON%" -m pip install --target "%GAZU_LIB%" -r "%SCRIPT_DIR%gazu_dcc_requirements.txt" --no-warn-script-location
+"%PYTHON%" -m pip install --target "%GAZU_LIB%" -r "%SCRIPT_DIR%requirements_dcc.txt" --no-warn-script-location
 
 IF %ERRORLEVEL% NEQ 0 (
     echo [ERROR] Gazu DCC dependency installation failed.
