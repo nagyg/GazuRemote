@@ -104,7 +104,7 @@ class AppSettingsDialog(QtWidgets.QDialog):
         self._form.setContentsMargins(0, 0, 0, 0)
 
         self._add_fusion_section()
-        self._add_console_section()
+        self._add_nuke_section()
         # Add more sections here: self._add_my_section()
 
         root.addWidget(content, stretch=1)
@@ -220,24 +220,6 @@ class AppSettingsDialog(QtWidgets.QDialog):
         if chosen:
             edit.setText(chosen)
 
-    def _make_checkbox_row(self, label: str, kind: str, description: str = "") -> QtWidgets.QCheckBox:
-        """Add a labelled QCheckBox row. Returns the checkbox widget."""
-        checkbox = QtWidgets.QCheckBox(description)
-
-        row_widget = QtWidgets.QWidget()
-        h = QtWidgets.QHBoxLayout(row_widget)
-        h.setContentsMargins(0, 0, 0, 0)
-        h.setSpacing(6)
-        h.addWidget(checkbox)
-        h.addStretch()
-        h.addWidget(self._badge(kind))
-
-        lbl = QtWidgets.QLabel(label)
-        lbl.setMinimumWidth(110)
-        lbl.setAlignment(QtCore.Qt.AlignRight | QtCore.Qt.AlignVCenter)
-        self._form.addRow(lbl, row_widget)
-        return checkbox
-
     # ------------------------------------------------------------------
     # Section builders  - one method per logical group
     # ------------------------------------------------------------------
@@ -249,11 +231,11 @@ class AppSettingsDialog(QtWidgets.QDialog):
             placeholder=r"C:\Program Files\Blackmagic Design\Fusion 20",
         )
 
-    def _add_console_section(self) -> None:
-        self._section_header("Console")
-        self._show_console_checkbox = self._make_checkbox_row(
-            "Show Console", "user",
-            description="Show cmd window on DCC launch",
+    def _add_nuke_section(self) -> None:
+        self._section_header("Nuke")
+        self._nuke_path_edit = self._make_path_row(
+            "Root Path", "user",
+            placeholder=r"C:\Program Files\Nuke17.0v1",
         )
 
     # ------------------------------------------------------------------
@@ -262,25 +244,25 @@ class AppSettingsDialog(QtWidgets.QDialog):
 
     def _load_values(self) -> None:
         self._fusion_path_edit.setText(self._config.load_fusion_path())
-        self._show_console_checkbox.setChecked(self._config.load_show_dcc_console())
+        self._nuke_path_edit.setText(self._config.load_nuke_path())
 
     def _capture_originals(self) -> None:
         """Snapshot the loaded values so we can detect dirty state."""
-        self._orig_fusion_path = self._fusion_path_edit.text()
-        self._orig_show_console = self._show_console_checkbox.isChecked()
+        self._orig_fusion_path  = self._fusion_path_edit.text()
+        self._orig_nuke_path    = self._nuke_path_edit.text()
 
     def _wire_dirty_checks(self) -> None:
         self._fusion_path_edit.textChanged.connect(self._update_save_state)
-        self._show_console_checkbox.toggled.connect(self._update_save_state)
+        self._nuke_path_edit.textChanged.connect(self._update_save_state)
 
     def _update_save_state(self) -> None:
         dirty = (
             self._fusion_path_edit.text() != self._orig_fusion_path
-            or self._show_console_checkbox.isChecked() != self._orig_show_console
+            or self._nuke_path_edit.text() != self._orig_nuke_path
         )
         self._save_btn.setEnabled(dirty)
 
     def _on_save(self) -> None:
         self._config.save_fusion_path(self._fusion_path_edit.text().strip())
-        self._config.save_show_dcc_console(self._show_console_checkbox.isChecked())
+        self._config.save_nuke_path(self._nuke_path_edit.text().strip())
         self.accept()

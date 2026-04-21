@@ -23,6 +23,7 @@ from pathlib import Path
 
 DCC_EXTENSIONS: dict[str, str] = {
     ".comp": "fusion",
+    ".nk":   "nuke",
 }
 
 
@@ -48,8 +49,12 @@ def launch_with_dcc(
 
     if dcc == "fusion":
         fusion_path = config_service.load_fusion_path()
-        show_console = config_service.load_show_dcc_console()
-        _launch_fusion(file_path, fusion_path, app_root, show_console, log_func)
+        _launch_fusion(file_path, fusion_path, app_root, log_func)
+        return True
+
+    if dcc == "nuke":
+        nuke_path = config_service.load_nuke_path()
+        _launch_nuke(file_path, nuke_path, app_root, log_func)
         return True
 
     return False
@@ -63,7 +68,6 @@ def _launch_fusion(
     file_path: str,
     fusion_path: str,
     app_root: Path,
-    show_console: bool = True,
     log_func=None,
 ) -> None:
     """Launch Fusion via open_fusion.cmd with FUSION_ROOT injected into env."""
@@ -86,10 +90,7 @@ def _launch_fusion(
 
     _log(f"Launching Fusion: {os.path.basename(file_path)}")
 
-    creationflags = (
-        subprocess.CREATE_NEW_CONSOLE if show_console
-        else subprocess.CREATE_NO_WINDOW
-    ) | subprocess.CREATE_NEW_PROCESS_GROUP
+    creationflags = subprocess.CREATE_NO_WINDOW | subprocess.CREATE_NEW_PROCESS_GROUP
 
     try:
         subprocess.Popen(
@@ -100,6 +101,44 @@ def _launch_fusion(
         )
     except Exception as exc:
         _log(f"Failed to launch Fusion: {exc}", _color("error"))
+
+
+def _launch_nuke(
+    file_path: str,
+    nuke_path: str,
+    app_root: Path,
+    log_func=None,
+) -> None:
+    """Launch Nuke via open_nuke.cmd with NUKE_ROOT injected into env."""
+
+    def _log(msg, color=None):
+        if log_func:
+            from services import ui_utils
+            log_func(msg, color or ui_utils.COLOR_INFO)
+        else:
+            print(msg)
+
+    cmd_path = Path(app_root) / "dcc" / "Nuke" / "open_nuke.cmd"
+    if not cmd_path.exists():
+        _log(f"Nuke launch script not found: {cmd_path}", _color("error"))
+        return
+
+    env = os.environ.copy()
+    env["NUKE_ROOT"] = nuke_path
+
+    _log(f"Launching Nuke: {os.path.basename(file_path)}")
+
+    creationflags = subprocess.CREATE_NO_WINDOW | subprocess.CREATE_NEW_PROCESS_GROUP
+
+    try:
+        subprocess.Popen(
+            ["cmd.exe", "/C", str(cmd_path), file_path],
+            env=env,
+            creationflags=creationflags,
+            cwd=str(cmd_path.parent),
+        )
+    except Exception as exc:
+        _log(f"Failed to launch Nuke: {exc}", _color("error"))
 
 
 # ---------------------------------------------------------------------------

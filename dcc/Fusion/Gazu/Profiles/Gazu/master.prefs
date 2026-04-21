@@ -3,8 +3,10 @@
 		Paths = {
 			Map = {
 				["GazuData:"] = "",
+				["Reactor:"] = "",
 				["LocalData:"] = "",
-				["UserPaths:"] = "AllData:;Fusion:;LocalData:;GazuData:",
+				["UserPaths:"] = "AllData:;Fusion:;LocalData:;GazuData:;Reactor:Deploy",
+				["Scripts:"] = "UserPaths:Scripts;Reactor:System/Scripts",
 			}
 		},
 	},

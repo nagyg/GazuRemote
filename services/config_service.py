@@ -96,17 +96,18 @@ class ConfigService:
         default = r"C:\Program Files\Blackmagic Design\Fusion 20"
         return self.load_config_data().get("user_settings", {}).get("fusion_path", default)
 
-    def save_show_dcc_console(self, value: bool) -> None:
-        """Saves the show_dcc_console flag to user settings."""
+    def save_nuke_path(self, path: str) -> None:
+        """Saves the Nuke executable directory path to user settings."""
         data = self.load_config_data()
         if "user_settings" not in data:
             data["user_settings"] = {}
-        data["user_settings"]["show_dcc_console"] = bool(value)
+        data["user_settings"]["nuke_path"] = path
         self._save_config_data(data)
 
-    def load_show_dcc_console(self) -> bool:
-        """Loads the show_dcc_console flag. Default: False (hidden console)."""
-        return bool(self.load_config_data().get("user_settings", {}).get("show_dcc_console", False))
+    def load_nuke_path(self) -> str:
+        """Loads the Nuke executable directory path from user settings."""
+        default = r"C:\Program Files\Nuke17.0v1"
+        return self.load_config_data().get("user_settings", {}).get("nuke_path", default)
 
     def load_config_data(self):
         """Loads the entire configuration data from the file."""

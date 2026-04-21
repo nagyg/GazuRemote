@@ -186,11 +186,16 @@ if __name__ == "__main__":
                     _update_comp_data(current_comp, ctx)
                     _update_path_maps(current_comp, ctx)
                     _update_comp_settings(current_comp, ctx)
+                    current_comp.SetData("Gazu.api_error_msg", "")
                     api_ok = True
                 else:
-                    print(f"Gazu API error: {ctx}")
+                    error_msg = str(ctx)
+                    print(f"Gazu API error: {error_msg}")
+                    current_comp.SetData("Gazu.api_error_msg", error_msg)
             except ImportError:
-                print("WARNING: gazu_api not available in PYTHONPATH.")
+                error_msg = "gazu_api not available in PYTHONPATH"
+                print(f"WARNING: {error_msg}")
+                current_comp.SetData("Gazu.api_error_msg", error_msg)
 
             # Always open Show.py (shows fresh data if api_ok, cached otherwise)
             try:

@@ -16,18 +16,22 @@ set FUSION_PYTHON3_HOME=%PYTHON_ROOT%
 set PATH=%PYTHON_ROOT%;%PYTHON_ROOT%\Scripts;%PATH%
 
 :: GazuLib Python
-set PYTHONPATH=%PYTHON_ROOT%;%GAZUREMOTE_ROOT%\dcc\Shared;%GAZUDATA%\Python
+set GAZULIB=%PYTHON_ROOT%\Gazu\Lib;%PYTHON_ROOT%\Gazu\scripts
+set PYTHONPATH=%GAZULIB%;%GAZUREMOTE_ROOT%\dcc\Shared;%GAZUDATA%\Python;%PYTHONPATH%
+
+:: Reactor
+set REACTOR_INSTALL_PATHMAP=%~dp0
+set REACTOR_PATH=%REACTOR_INSTALL_PATHMAP%Reactor
 
 set FUSION_MasterPrefs=%LOCALDATA%\Profiles\Gazu\master.prefs
 set FUSION16_PROFILE_DIR=%LOCALDATA%\Profiles
 set FUSION16_PROFILE=Gazu
 
 :: Python script updates the preferences file with current environment paths
-python "%~dp0setenv_fusion.py" "%GAZUDATA%\Profiles\Gazu\master.prefs" "%FUSION_MasterPrefs%" "GazuData:=%GAZUDATA%" "LocalData:=%LOCALDATA%"
+"%PYTHON_ROOT%\python.exe" "%~dp0setenv_fusion.py" "%GAZUDATA%\Profiles\Gazu\master.prefs" "%FUSION_MasterPrefs%" "GazuData:=%GAZUDATA%" "Reactor:=%REACTOR_PATH%" "LocalData:=%LOCALDATA%"
 
-:: PRINT -------------------------------------------------------------------
-echo FUSION LOCAL PROFILE   : %LOCALDATA%
-echo FUSION SITE            : %GAZUDATA%
-echo PYTHONPATH             : %PYTHONPATH:;= & ECHO:                       : %
+@REM :: PRINT --------------------------------------------------------------
+@REM set
+
 :: RUN ---------------------------------------------------------------------
 start "" "%FUSION_ROOT%\Fusion.exe" "%~1"

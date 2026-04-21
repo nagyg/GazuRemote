@@ -12,9 +12,21 @@ __pycache__/
 user_config.json
 
 # Bundled Python runtime (large binary – distribute separately)
-Python312/
+Python312/*
 # The clean embeddable zip IS committed (14 MB, no packages)
 !Python312_clean.zip
+# The Gazu API stack zip IS committed
+!Python312/Gazu.zip
+
+# Gazu bundle (extracted at install time from Python312/Gazu.zip)
+Python312/Gazu/
+
+# Fusion Reactor package manager (large binary content – not committed)
+dcc/Fusion/Reactor/*
+# Keep only the Reactor config file
+!dcc/Fusion/Reactor/Deploy/
+!dcc/Fusion/Reactor/Deploy/Config/
+!dcc/Fusion/Reactor/Deploy/Config/Reactor.fu
 
 # IDE
 .vscode/

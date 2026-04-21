@@ -62,26 +62,29 @@ def _format_context_display(gazu_data, path_prefs=None):
                 return str(val)
         return "\u2014"
 
+    def kv(key, value):
+        return f"  {key:<20}>  {value}"
+
     lines = []
 
     # --- Project Context ---
     lines.append("[ Context ]")
     lines.append("")
-    lines.append(f"  Project    :  {v('Project', 'project_name')}")
+    lines.append(kv("Project", v('Project', 'project_name')))
     ep = v('Episode', 'episode_name')
     if ep != "\u2014":
-        lines.append(f"  Episode    :  {ep}")
-    lines.append(f"  Sequence   :  {v('Sequence', 'sequence_name')}")
+        lines.append(kv("Episode", ep))
+    lines.append(kv("Sequence", v('Sequence', 'sequence_name')))
     entity_type = v('entity_type')
     shot_label  = "Asset" if entity_type == "Asset" else "Shot"
-    lines.append(f"  {shot_label:<10} :  {v('Shot', 'Asset', 'Entity', 'entity_name')}")
+    lines.append(kv(shot_label, v('Shot', 'Asset', 'Entity', 'entity_name')))
     task      = v('Task', 'task_short_name')
     task_full = v('task_name')
-    task_line = f"  Task       :  {task}"
+    task_val  = task
     if task_full != "\u2014" and task_full.lower() != task.lower():
-        task_line += f"  ({task_full})"
-    lines.append(task_line)
-    lines.append(f"  Status     :  {v('task_status')}")
+        task_val += f"  ({task_full})"
+    lines.append(kv("Task", task_val))
+    lines.append(kv("Status", v('task_status')))
     lines.append("")
 
     # --- Technical ---
@@ -91,35 +94,35 @@ def _format_context_display(gazu_data, path_prefs=None):
     f_out = v('frame_out')
     nb    = v('entity_nb_frames')
     if f_in != "\u2014" and f_out != "\u2014":
-        frame_str = f"  Frames     :  {f_in} \u2013 {f_out}"
+        frame_val = f"{f_in} \u2013 {f_out}"
         if nb != "\u2014":
-            frame_str += f"  ({nb} frames)"
-        lines.append(frame_str)
+            frame_val += f"  ({nb} frames)"
+        lines.append(kv("Frames", frame_val))
     ed     = ctx.get('entity_data', {}) or {}
     nested = ed.get('data', {}) or {}
     fps = ed.get('fps') or nested.get('fps') or gazu_data.get('fps')
     res = ed.get('resolution') or nested.get('resolution') or gazu_data.get('resolution')
-    lines.append(f"  FPS        :  {fps or chr(8212)}")
-    lines.append(f"  Resolution :  {res or chr(8212)}")
+    lines.append(kv("FPS", fps or chr(8212)))
+    lines.append(kv("Resolution", res or chr(8212)))
     lines.append("")
 
     # --- Paths ---
     lines.append("[ Paths ]")
     lines.append("")
-    lines.append(f"  Mountpoint     :  {v('project_mountpoint')}")
+    lines.append(kv("Mountpoint", v('project_mountpoint')))
     if path_prefs:
         gazu_keys = {k.rstrip(':'): pv
                      for k, pv in path_prefs.items()
                      if 'Gazu' in k and k.rstrip(':') != 'project_mountpoint'}
         for pk in sorted(gazu_keys):
-            lines.append(f"  {pk:<14} :  {gazu_keys[pk]}")
+            lines.append(kv(pk, gazu_keys[pk]))
     lines.append("")
 
     # --- IDs ---
     lines.append("[ IDs ]")
     lines.append("")
-    lines.append(f"  project_id :  {ctx.get('project_id', v('project_id'))}")
-    lines.append(f"  task_id    :  {ctx.get('task_id', v('task_id'))}")
+    lines.append(kv("project_id", ctx.get('project_id', v('project_id'))))
+    lines.append(kv("task_id", ctx.get('task_id', v('task_id'))))
 
     # --- Custom (extra entity_data fields not shown above) ---
     _standard_ed_keys = {'fps', 'resolution', 'frame_in', 'frame_out', 'data'}
@@ -136,10 +139,7 @@ def _format_context_display(gazu_data, path_prefs=None):
         lines.append("")
         for k, val in sorted(all_ed.items()):
             clean = str(k).replace(" ", "_").replace("-", "_")
-            lines.append(f"  {clean:<14} :  {val}")
-        # lines.append("")
-        # lines.append("  -- expressions help--")
-        # lines.append('  comp:GetData("Gazu.<key>")')
+            lines.append(kv(clean, val))
 
     return "\n".join(lines)
 
@@ -185,14 +185,22 @@ if HAS_QT:
 
         def _show_cache(self):
             gazu_data  = self._comp.GetData("Gazu") if self._comp else None
+            last_error = (gazu_data or {}).get('api_error_msg', '') or ''
             path_prefs = None
             if self._comp and gazu_data:
                 try:
                     path_prefs = self._comp.GetPrefs("Comp.Paths.Map") or {}
                 except Exception:
                     pass
-            self._text.setPlainText(_format_context_display(gazu_data, path_prefs))
-            if gazu_data:
+            display_text = _format_context_display(gazu_data, path_prefs)
+            if last_error:
+                sep = "\u2500" * 52
+                display_text = "[ API hiba ]\n\n  " + last_error + "\n\n" + sep + "\n\n" + display_text
+            self._text.setPlainText(display_text)
+            if last_error:
+                self._status_lbl.setText(f"\u26a0 API hiba: {last_error}")
+                self._status_lbl.setStyleSheet("color: #cc4444; font-size: 10px; padding: 2px 0;")
+            elif gazu_data:
                 self._status_lbl.setText("Saved in .comp file  (CustomData \u203a Gazu)  \u2014  run Reload Context to update")
                 self._status_lbl.setStyleSheet("color: #88cc88; font-size: 10px; padding: 2px 0;")
             else:

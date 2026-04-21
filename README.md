@@ -20,11 +20,11 @@ GazuRemote supports opening DCC files directly from the task file browser by dou
 | DCC | Extensions | Status |
 |---|---|---|
 | **Fusion** | `.comp` | ✅ Implemented – `dcc/Fusion/open_fusion.cmd` |
-| Nuke | `.nk`, `.nknc` | 🔲 Not implemented |
+| **Nuke** | `.nk` | ✅ Implemented – `dcc/Nuke/open_nuke.cmd` |
 | Houdini | `.hip`, `.hiplc`, `.hipnc` | 🔲 Not implemented |
 
-The Fusion path is configurable via **Settings** (gear icon in the main window).  
-A console window for DCC output can optionally be shown/hidden from the same Settings dialog.
+The DCC executable paths are configurable via **Settings** (gear icon in the main window).  
+DCC processes are launched in the background (no separate console window).
 
 ---
 
@@ -62,7 +62,8 @@ install.cmd
 
 The script will:
 - Extract the bundled `Python312_clean.zip` (Python 3.12.10 embeddable + pip)
-- Install all required packages from `requirements.txt`
+- Install desktop UI dependencies (`PySide6`) from `requirements.txt`
+- Extract the bundled `Python312\Gazu.zip` → `Python312\Gazu\` (Kitsu API stack: `gazu`, `requests`, `socketio`, `pywin32`, etc.)
 
 No separate Python installation required.
 
@@ -118,8 +119,15 @@ GazuRemote/
 ├── GazuRemote.cmd               # Debug launcher (console output)
 ├── install.cmd                  # First-time setup
 ├── Python312_clean.zip          # Bundled Python 3.12.10 embeddable + pip
-├── requirements.txt
+├── requirements.txt             # PySide6 only (Kitsu API stack bundled separately)
 ├── images/                      # App icons and logo
+├── Python312/                   # Extracted at install time (gitignored)
+│   ├── python.exe               # Python 3.12.10
+│   ├── Lib/site-packages/       # PySide6 and other desktop deps
+│   ├── Gazu.zip                 # Kitsu API stack archive (committed)
+│   └── Gazu/                   # Extracted at install time (gitignored)
+│       ├── Lib/                 # gazu, requests, certifi, socketio, pywin32, etc.
+│       └── scripts/             # gazu_api.py
 ├── login/
 │   ├── login_view.py            # Authentication + mount point validation
 │   └── login_window.ui
@@ -127,13 +135,18 @@ GazuRemote/
 │   ├── main_view.py             # Main window (task list + Settings button)
 │   ├── main_window.ui
 │   ├── remote_tasks_widget.py   # 4-panel task tree, dir browser, file list, thumbnail
-│   ├── dcc_launcher.py          # DCC launch dispatcher
-│   ├── app_settings_dialog.py   # Fusion path + Show Console setting
+│   ├── dcc_launcher.py          # DCC launch dispatcher (.comp → Fusion, .nk → Nuke)
+│   ├── app_settings_dialog.py   # Fusion path + Nuke Root Path settings
 │   ├── publisher_dialog.py      # Publish dialog
 │   └── publisher_dialog.ui
 ├── dcc/
-│   └── Fusion/
-│       └── open_fusion.cmd      # Fusion environment setup + launch
+│   ├── Fusion/
+│   │   ├── open_fusion.cmd      # Fusion environment setup + launch
+│   │   ├── Reactor/             # Fusion Reactor package manager
+│   │   └── Gazu/                # Fusion site (plugins, scripts, profiles)
+│   └── Nuke/
+│       ├── open_nuke.cmd        # Nuke environment setup + launch
+│       └── Gazu/                # Nuke site (menu.py + gazu_nuke.py)
 └── services/
     ├── gazu_api.py              # Kitsu/Zou API wrapper
     ├── config_service.py        # Config & credentials

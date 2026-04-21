@@ -1,12 +1,20 @@
 import sys
 import os
 import ctypes
-from PySide6 import QtWidgets, QtGui
 
-# Ensure project root is in sys.path so 'services', 'login', 'main' are importable
+def _prepend_path(path):
+    if os.path.isdir(path) and path not in sys.path:
+        sys.path.insert(0, path)
+
+
+# Ensure shared dependencies and project modules are importable.
 project_root = os.path.dirname(os.path.abspath(__file__))
-if project_root not in sys.path:
-    sys.path.insert(0, project_root)
+gazu_root = os.path.join(project_root, "Python312", "Gazu")
+_prepend_path(os.path.join(gazu_root, "scripts"))
+_prepend_path(os.path.join(gazu_root, "Lib"))
+_prepend_path(project_root)
+
+from PySide6 import QtWidgets, QtGui
 
 from login.login_view import RemoteLoginView
 
