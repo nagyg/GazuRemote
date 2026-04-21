@@ -9,7 +9,7 @@ SET "PYTHON_DIR=%SCRIPT_DIR%Python312"
 SET "PYTHON=%PYTHON_DIR%\python.exe"
 SET "PIP=%PYTHON_DIR%\Scripts\pip.exe"
 SET "ZIP=%SCRIPT_DIR%Python312_clean.zip"
-SET "GAZU_ZIP=%SCRIPT_DIR%Python312\Gazu.zip"
+SET "LIB_ZIP=%SCRIPT_DIR%Python312\Gazu\Lib.zip"
 SET "GAZU_DIR=%SCRIPT_DIR%Python312\Gazu"
 
 echo ============================================================
@@ -57,15 +57,15 @@ IF %ERRORLEVEL% NEQ 0 (
 )
 
 echo.
-echo [INFO] Refreshing Gazu bundle...
-IF NOT EXIST "%GAZU_ZIP%" (
-    echo [ERROR] Gazu bundle not found at: %GAZU_ZIP%
+echo [INFO] Refreshing Gazu Lib bundle...
+IF NOT EXIST "%LIB_ZIP%" (
+    echo [ERROR] Gazu Lib bundle not found at: %LIB_ZIP%
     pause
     exit /b 1
 )
 
-powershell -NoProfile -Command "if (Test-Path '%GAZU_DIR%\Lib') { Remove-Item '%GAZU_DIR%\Lib' -Recurse -Force }; if (Test-Path '%GAZU_DIR%\scripts') { Remove-Item '%GAZU_DIR%\scripts' -Recurse -Force }"
-powershell -NoProfile -Command "Expand-Archive -Path '%GAZU_ZIP%' -DestinationPath '%SCRIPT_DIR%Python312' -Force"
+powershell -NoProfile -Command "if (Test-Path '%GAZU_DIR%\Lib') { Remove-Item '%GAZU_DIR%\Lib' -Recurse -Force }"
+powershell -NoProfile -Command "Expand-Archive -Path '%LIB_ZIP%' -DestinationPath '%GAZU_DIR%' -Force"
 
 IF NOT EXIST "%GAZU_DIR%\Lib\gazu" (
     echo [ERROR] Gazu bundle extraction failed.

@@ -15,11 +15,14 @@ user_config.json
 Python312/*
 # The clean embeddable zip IS committed (14 MB, no packages)
 !Python312_clean.zip
-# The Gazu API stack zip IS committed
-!Python312/Gazu.zip
+# The Gazu folder IS committed (contains Lib.zip and scripts)
+!Python312/Gazu/
+Python312/Gazu/*
+!Python312/Gazu/Lib.zip
+!Python312/Gazu/scripts/
 
-# Gazu bundle (extracted at install time from Python312/Gazu.zip)
-Python312/Gazu/
+# Gazu Lib (extracted at install time from Python312/Gazu/Lib.zip)
+Python312/Gazu/Lib/
 
 # Fusion Reactor package manager (large binary content – not committed)
 dcc/Fusion/Reactor/*
