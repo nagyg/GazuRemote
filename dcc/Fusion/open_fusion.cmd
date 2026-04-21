@@ -7,8 +7,8 @@ if not defined FUSION_ROOT set "FUSION_ROOT=C:\Program Files\Blackmagic Design\F
 set GAZUREMOTE_ROOT=%~dp0..\..\
 
 :: Profiles
-set GAZUDATA=%~dp0Gazu
 set LOCALDATA=%USERPROFILE%\GazuRemote\dcc\fusion
+set GAZUDATA=%~dp0Gazu
 
 :: PYTHON
 set PYTHON_ROOT=%GAZUREMOTE_ROOT%\Python312
@@ -17,7 +17,7 @@ set PATH=%PYTHON_ROOT%;%PYTHON_ROOT%\Scripts;%PATH%
 
 :: GazuLib Python
 set GAZULIB=%PYTHON_ROOT%\Gazu\Lib;%PYTHON_ROOT%\Gazu\scripts
-set PYTHONPATH=%GAZULIB%;%GAZUREMOTE_ROOT%\dcc\Shared;%GAZUDATA%\Python;%PYTHONPATH%
+set PYTHONPATH=%GAZULIB%;%GAZUREMOTE_ROOT%\dcc\Shared;%GAZUDATA%\Python
 
 :: Reactor
 set REACTOR_INSTALL_PATHMAP=%~dp0

@@ -7,15 +7,18 @@ if not defined NUKE_ROOT set "NUKE_ROOT=C:\Program Files\Nuke17.0v1"
 set GAZUREMOTE_ROOT=%~dp0..\..\
 
 :: Profiles
-set GAZUDATA=%~dp0Gazu
 set HOME=%USERPROFILE%\GazuRemote\dcc\nuke
+set NUKE_PLUGINS=%GAZUREMOTE_ROOT%\dcc\Nuke
 
 :: PYTHON
-set GAZULIB=%GAZUREMOTE_ROOT%\Python312\Gazu\Lib;%GAZUREMOTE_ROOT%\Python312\Gazu\scripts
+set PYTHON_ROOT=%GAZUREMOTE_ROOT%\Python312
+
+:: GazuLib Python
+set GAZULIB=%PYTHON_ROOT%\Gazu\Lib;%PYTHON_ROOT%\Gazu\scripts
 set PYTHONPATH=%GAZULIB%;%GAZUREMOTE_ROOT%\dcc\Shared
 
 :: Nuke PATH
-set NUKE_PATH=%NUKE_PATH%;%GAZUDATA%
+set NUKE_PATH=%NUKE_PLUGINS%\Gazu;%NUKE_PLUGINS%\Plugins
 
 :: Nuke exe : "Nuke17.0v1" or "Nuke 17.0v1" -> "Nuke17.0.exe"
 for %%I in ("%NUKE_ROOT%") do set "_NUKE_BASENAME=%%~nxI"
