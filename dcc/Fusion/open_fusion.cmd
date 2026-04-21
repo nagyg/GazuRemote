@@ -17,7 +17,7 @@ set PATH=%PYTHON_ROOT%;%PYTHON_ROOT%\Scripts;%PATH%
 
 :: GazuLib Python
 set GAZULIB=%PYTHON_ROOT%\Gazu\Lib;%PYTHON_ROOT%\Gazu\scripts
-set PYTHONPATH=%GAZULIB%;%GAZUREMOTE_ROOT%\dcc\Shared;%GAZUDATA%\Python
+set PYTHONPATH=%GAZULIB%;%GAZUDATA%\Python
 
 :: Reactor
 set REACTOR_INSTALL_PATHMAP=%~dp0
