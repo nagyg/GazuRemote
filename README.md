@@ -146,7 +146,8 @@ GazuRemote/
 │   │   └── Gazu/                # Fusion site (plugins, scripts, profiles)
 │   └── Nuke/
 │       ├── open_nuke.cmd        # Nuke environment setup + launch
-│       └── Gazu/                # Nuke site (menu.py + gazu_nuke.py)
+│       ├── Gazu/                # Nuke site (menu.py + gazu_nuke.py)
+│       └── Plugins/             # Studio Nuke plugins (gizmos, menu.py)
 └── services/
     ├── gazu_api.py              # Kitsu/Zou API wrapper
     ├── config_service.py        # Config & credentials
