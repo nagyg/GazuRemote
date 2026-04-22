@@ -980,6 +980,12 @@ class RemoteTasksWidget(QtWidgets.QWidget):
 
         action = menu.exec(self.files_table_view.viewport().mapToGlobal(pos))
         if action == action_open:
+            from . import dcc_launcher
+            config_service = getattr(self.main_window, "config_service", None)
+            app_root = getattr(self.main_window, "_app_root", None)
+            if config_service and app_root:
+                if dcc_launcher.launch_with_dcc(file_path, config_service, app_root, self._log):
+                    return
             ui_utils.open_file(file_path)
         elif action == action_reveal:
             ui_utils.show_in_explorer(file_path)

@@ -6,7 +6,7 @@ Launches DCC applications from GazuRemote workfile double-clicks.
 Extension routing is defined in DCC_EXTENSIONS – extend here to add
 Nuke (.nk), Houdini (.hip), etc.  For each new DCC:
   1. Add its extensions to DCC_EXTENSIONS.
-  2. Add a _launch_<dcc>() function following the _launch_fusion() pattern.
+  2. Add a _launch_<dcc>() function following the _launch_nuke() pattern.
   3. Dispatch it in launch_with_dcc().
 """
 
@@ -14,6 +14,7 @@ from __future__ import annotations
 
 import os
 import subprocess
+import sys
 from pathlib import Path
 
 
@@ -84,13 +85,12 @@ def _launch_fusion(
         _log(f"Fusion launch script not found: {cmd_path}", _color("error"))
         return
 
-    # Inject FUSION_ROOT so open_fusion.cmd uses the user-configured path
-    env = os.environ.copy()
+    env = _get_clean_env()
     env["FUSION_ROOT"] = fusion_path
 
     _log(f"Launching Fusion: {os.path.basename(file_path)}")
 
-    creationflags = subprocess.CREATE_NO_WINDOW | subprocess.CREATE_NEW_PROCESS_GROUP
+    creationflags = subprocess.CREATE_NEW_CONSOLE | subprocess.CREATE_NEW_PROCESS_GROUP
 
     try:
         subprocess.Popen(
@@ -123,12 +123,14 @@ def _launch_nuke(
         _log(f"Nuke launch script not found: {cmd_path}", _color("error"))
         return
 
-    env = os.environ.copy()
+    env = _get_clean_env()
     env["NUKE_ROOT"] = nuke_path
 
     _log(f"Launching Nuke: {os.path.basename(file_path)}")
 
-    creationflags = subprocess.CREATE_NO_WINDOW | subprocess.CREATE_NEW_PROCESS_GROUP
+    # CREATE_NEW_CONSOLE: visible CMD window for debugging (shows env / script output).
+    # /C: window closes automatically after the script finishes (+ timeout in .cmd).
+    creationflags = subprocess.CREATE_NEW_CONSOLE | subprocess.CREATE_NEW_PROCESS_GROUP
 
     try:
         subprocess.Popen(
@@ -144,6 +146,75 @@ def _launch_nuke(
 # ---------------------------------------------------------------------------
 # Internal helpers
 # ---------------------------------------------------------------------------
+
+def _get_clean_env() -> dict[str, str]:
+    """
+    Build a pristine Windows environment from the Registry so that no
+    GazuRemote runtime variables (PYTHONPATH, PySide DLLs, etc.) leak into
+    the DCC process.  Falls back to os.environ.copy() on non-Windows.
+    """
+    if sys.platform != "win32":
+        return os.environ.copy()
+
+    import winreg
+    import re
+
+    # Volatile keys: generated at logon, not stored in the static registry.
+    volatile_keys = [
+        "APPDATA", "LOCALAPPDATA", "USERPROFILE", "USERNAME", "USERDOMAIN",
+        "COMPUTERNAME", "HOMEDRIVE", "HOMEPATH", "LOGONSERVER",
+        "OS", "PROCESSOR_ARCHITECTURE", "PROCESSOR_IDENTIFIER", "PROCESSOR_LEVEL",
+        "PROCESSOR_REVISION", "PROGRAMDATA", "PROGRAMFILES", "PROGRAMFILES(X86)",
+        "PUBLIC", "SYSTEMDRIVE", "SYSTEMROOT", "WINDIR", "TEMP", "TMP",
+        "COMSPEC", "PATHEXT",
+    ]
+    clean_env: dict[str, str] = {k: os.environ[k] for k in volatile_keys if k in os.environ}
+
+    def _read_reg(hkey, subkey):
+        result = {}
+        try:
+            with winreg.OpenKey(hkey, subkey) as key:
+                i = 0
+                while True:
+                    try:
+                        name, value, _ = winreg.EnumValue(key, i)
+                        result[name.upper()] = value
+                        i += 1
+                    except OSError:
+                        break
+        except Exception:
+            pass
+        return result
+
+    system_env = _read_reg(
+        winreg.HKEY_LOCAL_MACHINE,
+        r"SYSTEM\CurrentControlSet\Control\Session Manager\Environment",
+    )
+    user_env = _read_reg(winreg.HKEY_CURRENT_USER, r"Environment")
+
+    # PATH: system + user concatenated (standard Windows behaviour)
+    sys_path = system_env.get("PATH", "")
+    usr_path = user_env.get("PATH", "")
+    combined_path = f"{sys_path};{usr_path}" if sys_path and usr_path else sys_path or usr_path
+
+    clean_env.update(system_env)
+    clean_env.update(user_env)
+    if combined_path:
+        clean_env["PATH"] = combined_path
+
+    # Expand %VARIABLE% references (two passes for nested refs)
+    def _expand(val, env_dict):
+        return re.sub(
+            r"%([^%]+)%",
+            lambda m: str(env_dict.get(m.group(1).upper(), m.group(0))),
+            str(val),
+        )
+
+    for _ in range(2):
+        clean_env = {k: _expand(v, clean_env) for k, v in clean_env.items()}
+
+    return {str(k): str(v) for k, v in clean_env.items()}
+
 
 def _color(level: str) -> str:
     """Return a ui_utils color constant string without importing at module level."""
