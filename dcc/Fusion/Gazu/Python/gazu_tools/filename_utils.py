@@ -39,18 +39,34 @@ def get_gazu_context(comp):
 
 def update_single_node(node, context_data):
     """
-    Updates the 'Clip' input of a single Saver or Loader node based on 'GazuFilename' input pattern.
+    Updates the 'Clip' input of a Saver or Loader node based on 'GazuFilename',
+    or the 'LUTFile' input of a FileLUT node based on 'GazuLUTName'.
     """
     print(f"Processing Node: {node.Name}")
-    
-    # Check inputs
-    pattern = node.GetInput("GazuFilename")
+
+    # Determine pattern and target input based on node type
+    pattern = None
+    target_input = None
+
+    # FileLUT node
+    lut_pattern = node.GetInput("GazuLUTFile")
+    if lut_pattern is not None and lut_pattern != "":
+        pattern = lut_pattern
+        target_input = "LUTFile"
+
+    # Saver / Loader node
     if pattern is None:
-         pattern = node.GetInput("UserGazuFilename")
-    
-    # Check if pattern is valid string and not just empty
-    if not pattern or pattern == "":
-        print(f"  [SKIP] 'GazuFilename' is empty or missing.")
+        pattern = node.GetInput("GazuFilename")
+        if pattern is None:
+            pattern = node.GetInput("UserGazuFilename")
+        if pattern is not None and pattern != "":
+            target_input = "Clip"
+        else:
+            pattern = None
+
+    # Check if pattern is valid
+    if not pattern:
+        print(f"  [SKIP] No Gazu pattern input found or empty.")
         return False
 
     # Replace placeholders
@@ -59,13 +75,13 @@ def update_single_node(node, context_data):
         placeholder = "{" + key + "}"
         if placeholder in result_path:
             result_path = result_path.replace(placeholder, str(val))
-    
+
     # Check for unresolved tokens
     if re.search(r"\{[a-zA-Z0-9_]+\}", result_path):
-             print(f"  [WARN] Unresolved tokens in: {result_path}")
+        print(f"  [WARN] Unresolved tokens in: {result_path}")
 
     print(f"  Result: {result_path}")
-    node.SetInput("Clip", result_path)
+    node.SetInput(target_input, result_path)
     return True
 
 def update_all_nodes(comp):
@@ -75,19 +91,20 @@ def update_all_nodes(comp):
     if not comp:
         return
 
-    print("--- Updating All Savers and Loaders (Gazu) ---")
+    print("--- Updating All Savers, Loaders and FileLUTs (Gazu) ---")
     ctx = get_gazu_context(comp)
     print(f"  Context Version: {ctx.get('Version')}")
-    
-    # Get both Savers and Loaders
+
+    # Get Savers, Loaders and FileLUTs
     savers = comp.GetToolList(False, "Saver") or {}
     loaders = comp.GetToolList(False, "Loader") or {}
-    
+    fileluts = comp.GetToolList(False, "FileLUT") or {}
+
     # Combine lists of values instead of merging dicts (which might have colliding keys)
-    all_nodes = list(savers.values()) + list(loaders.values())
-    
+    all_nodes = list(savers.values()) + list(loaders.values()) + list(fileluts.values())
+
     if not all_nodes:
-        print("  No Savers or Loaders found.")
+        print("  No Savers, Loaders or FileLUTs found.")
         return
 
     count = 0

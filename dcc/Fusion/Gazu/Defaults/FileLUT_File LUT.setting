@@ -1,0 +1,26 @@
+{
+	Tools = ordered() {
+		FileLUT1 = FileLUT {
+			CtrlWZoom = false,
+			Inputs = {
+				Input = Input {
+					SourceOp = "LoaderOut",
+					Source = "Output",
+				},
+				GazuLUTFile = Input { Value = "GazuShotPath:\\comp\\source\\LUTs\\{Project}_{Sequence}_{Shot}.cube", }
+			},
+			UserControls = ordered() {
+				GazuLUTFile = {
+					TEC_ReadOnly = false,
+					LINKS_Name = "Gazu LUT File",
+					INP_External = false,
+					ICS_ControlPage = "Controls",
+					LINKID_DataType = "Text",
+					INPID_InputControl = "TextEditControl",
+					TEC_Lines = 1,
+					TEC_Wrap = false,
+				}
+			}
+		}
+	}
+}
