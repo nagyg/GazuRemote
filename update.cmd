@@ -4,7 +4,7 @@ setlocal
 
 for %%I in ("%~dp0.") do set "REPO_ROOT=%%~fI"
 
-echo ----------------GAZUREMOTE UPDATE-
+echo -------------------------------------------------------------------GAZUREMOTE UPDATE-
 echo Repository : %REPO_ROOT%
 echo:
 
@@ -26,7 +26,19 @@ if errorlevel 1 (
 :: Verify this is a git repo
 git rev-parse --is-inside-work-tree >nul 2>&1
 if errorlevel 1 (
-    echo ERROR: %REPO_ROOT% is not a git repository.
+    echo ERROR: This folder is not a git repository.
+    echo:
+    echo It looks like GazuRemote was downloaded as a ZIP archive.
+    echo ZIP downloads cannot be updated with git pull.
+    echo:
+    echo To enable automatic updates, clone the repository instead:
+    echo:
+    echo   1. Delete or rename this folder
+    echo   2. Run:  cd ~\Downloads
+    echo   3. Run:  git clone https://github.com/nagyg/GazuRemote.git ./GazuRemote
+    echo   4. Run:  install.cmd
+    echo   5. Run:  update.cmd to update in the future
+    echo:
     pause
     exit /b 1
 )

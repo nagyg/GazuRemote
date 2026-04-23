@@ -83,12 +83,16 @@ GazuRemote.exe
 
 ## Updating
 
+Double-click **`update.cmd`** or run from the command line:
+
 ```cmd
-git pull
-install.cmd
+update.cmd
 ```
 
-The `install.cmd` will also upgrade any outdated dependencies.
+This will pull the latest `master` branch from GitHub.  
+Afterwards run `install.cmd` if dependencies changed.
+
+> **Note:** `update.cmd` requires a `git clone` installation. If you downloaded GazuRemote as a ZIP, the script will guide you through migrating to a proper clone.
 
 ---
 
@@ -118,6 +122,7 @@ GazuRemote/
 ├── GazuRemote.exe               # Main launcher (no console)
 ├── GazuRemote.cmd               # Debug launcher (console output)
 ├── install.cmd                  # First-time setup
+├── update.cmd                   # git pull latest master (with ZIP-install guard)
 ├── Python312.zip                # Bundled Python 3.12.10 embeddable + pip
 ├── requirements.txt             # PySide6 only (Kitsu API stack bundled separately)
 ├── requirements_dcc.txt         # Gazu only for DCC
@@ -142,12 +147,14 @@ GazuRemote/
 ├── dcc/
 │   ├── Fusion/
 │   │   ├── open_fusion.cmd      # Fusion environment setup + launch
+│   │   ├── Plugins/             # Studio Fusion plugins – gitignored, copy here locally
 │   │   ├── Reactor/             # Fusion Reactor package manager
 │   │   └── Gazu/                # Fusion site (plugins, scripts, profiles)
 │   └── Nuke/
 │       ├── open_nuke.cmd        # Nuke environment setup + launch
-│       ├── Gazu/                # Nuke site (menu.py + gazu_nuke.py)
-│       └── Plugins/             # Studio Nuke plugins (gizmos, menu.py)
+│       ├── Plugins/             # Studio Nuke plugins – gitignored, copy here locally
+│       │                        # Each subfolder is auto-added to NUKE_PATH at launch
+│       └── Gazu/                # Nuke site (menu.py + gazu_nuke.py)
 └── services/
     ├── gazu_api.py              # Kitsu/Zou API wrapper
     ├── config_service.py        # Config & credentials
