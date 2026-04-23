@@ -21,6 +21,14 @@ Python312/Gazu/*
 # Gazu Lib (extracted at install time from Python312/Gazu/Lib.zip)
 Python312/Gazu/Lib/
 
+# Nuke third-party plugins (installed locally – not committed)
+dcc/Nuke/Plugins/*
+!dcc/Nuke/Plugins/.gitkeep
+
+# Fusion third-party plugins (installed locally – not committed)
+dcc/Fusion/Plugins/*
+!dcc/Fusion/Plugins/.gitkeep
+
 # Fusion Reactor package manager (large binary content – not committed)
 dcc/Fusion/Reactor/*
 # Keep only the Reactor config file

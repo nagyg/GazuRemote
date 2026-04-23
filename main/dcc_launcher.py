@@ -126,6 +126,18 @@ def _launch_nuke(
     env = _get_clean_env()
     env["NUKE_ROOT"] = nuke_path
 
+    # Build NUKE_PATH dynamically from all subdirs in dcc/Nuke/Plugins
+    nuke_plugins_root = Path(app_root) / "dcc" / "Nuke"
+    plugins_dir = nuke_plugins_root / "Plugins"
+    nuke_path_parts = [str(nuke_plugins_root / "Gazu")]
+    if plugins_dir.is_dir():
+        nuke_path_parts += [
+            str(sub)
+            for sub in sorted(plugins_dir.iterdir())
+            if sub.is_dir()
+        ]
+    env["NUKE_PATH"] = ";".join(nuke_path_parts)
+
     _log(f"Launching Nuke: {os.path.basename(file_path)}")
 
     # CREATE_NEW_CONSOLE: visible CMD window for debugging (shows env / script output).

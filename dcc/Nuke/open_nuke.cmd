@@ -18,16 +18,27 @@ set "GAZULIB=%PYTHON_ROOT%\Gazu\Lib;%PYTHON_ROOT%\Gazu\scripts"
 set "PYTHONPATH=%GAZULIB%"
 
 :: Nuke PATH
-set "NUKE_PATH=%NUKE_PLUGINS%\Gazu;%NUKE_PLUGINS%\Plugins"
+:: NUKE_PATH is injected by dcc_launcher.py; only set fallback when launched standalone.
+if not defined NUKE_PATH set "NUKE_PATH=%NUKE_PLUGINS%\Gazu;%NUKE_PLUGINS%\Plugins"
 
 :: Nuke exe : "Nuke17.0v1" or "Nuke 17.0v1" -> "Nuke17.0.exe"
 for %%I in ("%NUKE_ROOT%") do set "_NUKE_BASENAME=%%~nxI"
 for /f "tokens=1 delims=v" %%a in ("%_NUKE_BASENAME%") do set "NUKE_EXE=%%a.exe"
 set "NUKE_EXE=%NUKE_EXE: =%"
 
-:: PRINT --------------------------------------------------------------
-set
+:: PRINT ---------------------------------------------------------------------
+echo ----------------GAZUENV-
+echo GAZUREMOTE ROOT        : %GAZUREMOTE_ROOT%
+echo HOME                   : %HOME%
+echo NUKE PATH              : %NUKE_PATH:;= & ECHO:                       : %
+echo PYTHONPATH             : %PYTHONPATH:;= & ECHO:                       : %
 
-:: RUN ---------------------------------------------------------------------
+echo:
+echo Environment DONE, start %NUKE_EXE%
+echo:
+
+@REM set
+
+:: RUN -----------------------------------------------------------------------
 start "" "%NUKE_ROOT%\%NUKE_EXE%" "%~1"
 timeout /t 60 /nobreak

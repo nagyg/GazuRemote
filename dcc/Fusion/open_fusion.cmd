@@ -7,8 +7,10 @@ if not defined FUSION_ROOT set "FUSION_ROOT=C:\Program Files\Blackmagic Design\F
 for %%I in ("%~dp0..\..") do set "GAZUREMOTE_ROOT=%%~fI"
 
 :: Profiles
-set "LOCALDATA=%USERPROFILE%\GazuRemote\dcc\fusion"
-set "GAZUDATA=%~dp0Gazu"
+set "GAZUFUSION_PROFILES=%GAZUREMOTE_ROOT%\dcc\Fusion"
+
+set "LOCALDATA=%GAZUFUSION_PROFILES%\Plugins"
+set "GAZUDATA=%GAZUFUSION_PROFILES%\Gazu"
 
 :: PYTHON
 set "PYTHON_ROOT=%GAZUREMOTE_ROOT%\Python312"
@@ -20,7 +22,7 @@ set "GAZULIB=%PYTHON_ROOT%\Gazu\Lib;%PYTHON_ROOT%\Gazu\scripts"
 set "PYTHONPATH=%GAZULIB%;%GAZUDATA%\Python"
 
 :: Reactor
-set "REACTOR_INSTALL_PATHMAP=%~dp0"
+set "REACTOR_INSTALL_PATHMAP=%GAZUFUSION_PROFILES%\"
 set "REACTOR_PATH=%REACTOR_INSTALL_PATHMAP%Reactor"
 
 set "FUSION_MasterPrefs=%LOCALDATA%\Profiles\Gazu\master.prefs"
@@ -30,8 +32,19 @@ set "FUSION16_PROFILE=Gazu"
 :: Python script updates the preferences file with current environment paths
 "%PYTHON_ROOT%\python.exe" "%~dp0setenv_fusion.py" "%GAZUDATA%\Profiles\Gazu\master.prefs" "%FUSION_MasterPrefs%" "GazuData:=%GAZUDATA%" "Reactor:=%REACTOR_PATH%" "LocalData:=%LOCALDATA%"
 
-:: PRINT --------------------------------------------------------------
-set
+:: PRINT ---------------------------------------------------------------------
+echo ----------------GAZUENV-
+echo GAZUREMOTE ROOT        : %GAZUREMOTE_ROOT%
+echo FUSION ROOT            : %FUSION_ROOT%
+echo LOCALDATA              : %LOCALDATA%
+echo REACTOR PATH           : %REACTOR_PATH%
+echo PYTHONPATH             : %PYTHONPATH:;= & ECHO:                       : %
+
+echo:
+echo Environment DONE, start Fusion.exe
+echo:
+
+@REM set
 
 :: RUN ---------------------------------------------------------------------
 start "" "%FUSION_ROOT%\Fusion.exe" "%~1"

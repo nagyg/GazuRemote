@@ -1,0 +1,3 @@
+Copy third-party Nuke plugin folders here.
+Each subfolder will be automatically added to NUKE_PATH at launch by dcc_launcher.py.
+This file is a placeholder – the folder contents are excluded from the repository.
