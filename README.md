@@ -52,6 +52,9 @@ DCC processes are launched in the background (no separate console window).
 Git is required to clone and update the repository.  
 Download and install it from: https://git-scm.com/download/win
 
+> ⚠️ **Important:** Install GazuRemote in a folder where you have full read/write access (e.g. `%USERPROFILE%\GazuRemote` or `C:\GazuRemote`).  
+> **Do not install** under `C:\Program Files\` — standard users cannot write there, and the application will fail on startup.
+
 ### 1. Clone the repository
 
 Navigate to the folder where you want to install GazuRemote, then clone:
