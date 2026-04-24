@@ -1,6 +1,6 @@
 @echo off
 :: UPDATE GazuRemote – pulls latest master from origin
-setlocal
+setlocal enabledelayedexpansion
 
 for %%I in ("%~dp0.") do set "REPO_ROOT=%%~fI"
 
@@ -47,7 +47,35 @@ if errorlevel 1 (
 echo Current branch:
 git branch --show-current
 
+:: Check for local changes
 echo:
+git status --short > "%TEMP%\gazu_remote_status.tmp"
+for %%F in ("%TEMP%\gazu_remote_status.tmp") do set GIT_STATUS_SIZE=%%~zF
+if %GIT_STATUS_SIZE% GTR 0 (
+    echo WARNING: You have local uncommitted changes:
+    echo:
+    type "%TEMP%\gazu_remote_status.tmp"
+    echo:
+    echo A force update will DISCARD all local changes and overwrite them
+    echo with the latest version from the remote repository.
+    echo:
+    set /p FORCE_CHOICE="Do you want to force update and discard local changes? [y/N]: "
+    echo:
+    if /i "!FORCE_CHOICE!"=="y" (
+        echo Discarding local changes...
+        git reset --hard HEAD
+        git clean -fd
+        echo:
+    ) else (
+        echo Update cancelled. Local changes were kept.
+        echo:
+        del /q "%TEMP%\gazu_remote_status.tmp" 2>nul
+        pause
+        exit /b 0
+    )
+)
+del /q "%TEMP%\gazu_remote_status.tmp" 2>nul
+
 echo Fetching origin...
 git fetch origin
 
