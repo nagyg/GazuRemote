@@ -30,11 +30,17 @@ dcc/Fusion/Plugins/*
 !dcc/Fusion/Plugins/.gitkeep
 
 # Fusion Reactor package manager (large binary content – not committed)
-dcc/Fusion/Reactor/*
+dcc/Fusion/Reactor/**
 # Keep only the Reactor config file
 !dcc/Fusion/Reactor/Deploy/
 !dcc/Fusion/Reactor/Deploy/Config/
 !dcc/Fusion/Reactor/Deploy/Config/Reactor.fu
+
+# Nuke user profile directory (local user data – not committed)
+dcc/nuke/.nuke/
+
+# Generated thumbnails (local cache – not committed)
+thumbnails/
 
 # IDE
 .vscode/

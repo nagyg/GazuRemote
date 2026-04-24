@@ -53,7 +53,7 @@ Git is required to clone and update the repository.
 Download and install it from: https://git-scm.com/download/win
 
 > ⚠️ **Important:** Install GazuRemote in a folder where you have full read/write access
-> e.g. `%USERPROFILE%\GazuRemote` or `C:\GazuRemote`
+> e.g. `C:\GazuRemote`
 > **Do not install** under `C:\Program Files\`
 
 ### 1. Clone the repository

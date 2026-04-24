@@ -7,7 +7,7 @@ if not defined NUKE_ROOT set "NUKE_ROOT=C:\Program Files\Nuke17.0v1"
 for %%I in ("%~dp0..\..") do set "GAZUREMOTE_ROOT=%%~fI"
 
 :: Profiles
-set "HOME=%USERPROFILE%\GazuRemote\dcc\nuke"
+set "HOME=%USERPROFILE%\GazuRemote\dcc\Nuke"
 set "NUKE_PLUGINS=%GAZUREMOTE_ROOT%\dcc\Nuke"
 
 :: PYTHON
