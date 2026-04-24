@@ -56,7 +56,7 @@ Download and install it from: https://git-scm.com/download/win
 > 
 > Install GazuRemote in a folder where you have full read/write access e.g. `C:\GazuRemote`
 > 
-> ⚠️ **Do not install** under `C:\Program Files\`
+> **Do not install** under `C:\Program Files\`
 
 ### 1. Clone the repository
 
