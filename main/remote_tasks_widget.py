@@ -958,6 +958,14 @@ class RemoteTasksWidget(QtWidgets.QWidget):
 
         menu = QtWidgets.QMenu(self)
         action_open = menu.addAction("Open")
+
+        # Nuke variants – .nk files only
+        action_open_nukex = None
+        action_open_nukeassist = None
+        if file_name.lower().endswith(".nk"):
+            action_open_nukex = menu.addAction("Open in NukeX")
+            action_open_nukeassist = menu.addAction("Open in Nuke Assist")
+
         action_reveal = menu.addAction("Show in Explorer")
         action_copy = menu.addAction("Copy Path")
         menu.addSeparator()
@@ -987,6 +995,18 @@ class RemoteTasksWidget(QtWidgets.QWidget):
                 if dcc_launcher.launch_with_dcc(file_path, config_service, app_root, self._log):
                     return
             ui_utils.open_file(file_path)
+        elif action_open_nukex and action == action_open_nukex:
+            from . import dcc_launcher
+            config_service = getattr(self.main_window, "config_service", None)
+            app_root = getattr(self.main_window, "_app_root", None)
+            if config_service and app_root:
+                dcc_launcher.launch_with_dcc(file_path, config_service, app_root, self._log, nuke_flag="--nukex")
+        elif action_open_nukeassist and action == action_open_nukeassist:
+            from . import dcc_launcher
+            config_service = getattr(self.main_window, "config_service", None)
+            app_root = getattr(self.main_window, "_app_root", None)
+            if config_service and app_root:
+                dcc_launcher.launch_with_dcc(file_path, config_service, app_root, self._log, nuke_flag="--nukeassist")
         elif action == action_reveal:
             ui_utils.show_in_explorer(file_path)
         elif action == action_copy:

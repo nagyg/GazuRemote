@@ -32,6 +32,7 @@ echo GAZUREMOTE ROOT        : %GAZUREMOTE_ROOT%
 echo HOME                   : %HOME%
 echo NUKE PATH              : %NUKE_PATH:;= & ECHO:                       : %
 echo PYTHONPATH             : %PYTHONPATH:;= & ECHO:                       : %
+if not "%~2"=="" echo Nuke flag              : %~2
 
 echo:
 echo Environment DONE, start %NUKE_EXE%
@@ -40,5 +41,6 @@ echo:
 @REM set
 
 :: RUN -----------------------------------------------------------------------
-start "" "%NUKE_ROOT%\%NUKE_EXE%" "%~1"
+:: %~1 = file path, %~2 = optional flag (e.g. --nukex)
+start "" "%NUKE_ROOT%\%NUKE_EXE%" %~2 "%~1"
 timeout /t 60 /nobreak

@@ -37,6 +37,7 @@ def launch_with_dcc(
     config_service,
     app_root: Path,
     log_func=None,
+    nuke_flag: str = "",
 ) -> bool:
     """
     Launch the appropriate DCC for *file_path* based on its extension.
@@ -44,6 +45,11 @@ def launch_with_dcc(
     Returns True if a DCC was matched and a launch was attempted.
     Returns False when no DCC handles this extension – the caller can then
     fall back to the default OS open (ui_utils.open_file).
+
+    nuke_flag: optional Nuke mode flag passed to the exe, e.g.
+               ""              – plain Nuke  (default)
+               "--nukex"       – NukeX
+               "--nukeassist"  – Nuke Assist
     """
     ext = os.path.splitext(file_path)[1].lower()
     dcc = DCC_EXTENSIONS.get(ext)
@@ -55,7 +61,7 @@ def launch_with_dcc(
 
     if dcc == "nuke":
         nuke_path = config_service.load_nuke_path()
-        _launch_nuke(file_path, nuke_path, app_root, log_func)
+        _launch_nuke(file_path, nuke_path, app_root, log_func, nuke_flag=nuke_flag)
         return True
 
     return False
@@ -108,8 +114,13 @@ def _launch_nuke(
     nuke_path: str,
     app_root: Path,
     log_func=None,
+    nuke_flag: str = "",
 ) -> None:
-    """Launch Nuke via open_nuke.cmd with NUKE_ROOT injected into env."""
+    """Launch Nuke via open_nuke.cmd with NUKE_ROOT injected into env.
+
+    nuke_flag: optional flag passed as %~2 to open_nuke.cmd, forwarded to
+    the Nuke executable before the file path (e.g. --nukex, --nukeassist).
+    """
 
     def _log(msg, color=None):
         if log_func:
@@ -138,21 +149,31 @@ def _launch_nuke(
         ]
     env["NUKE_PATH"] = ";".join(nuke_path_parts)
 
-    _log(f"Launching Nuke: {os.path.basename(file_path)}")
+    _NUKE_LABELS = {
+        "--nukex":      "NukeX",
+        "--nukeassist": "Nuke Assist",
+    }
+    label = _NUKE_LABELS.get(nuke_flag, "Nuke")
+    _log(f"Launching {label}: {os.path.basename(file_path)}")
 
     # CREATE_NEW_CONSOLE: visible CMD window for debugging (shows env / script output).
     # /C: window closes automatically after the script finishes (+ timeout in .cmd).
     creationflags = subprocess.CREATE_NEW_CONSOLE | subprocess.CREATE_NEW_PROCESS_GROUP
 
+    # open_nuke.cmd signature: %~1 = file path, %~2 = optional flag (--nukex / --nukeassist)
+    cmd_args = ["cmd.exe", "/C", str(cmd_path), file_path]
+    if nuke_flag:
+        cmd_args.append(nuke_flag)
+
     try:
         subprocess.Popen(
-            ["cmd.exe", "/C", str(cmd_path), file_path],
+            cmd_args,
             env=env,
             creationflags=creationflags,
             cwd=str(cmd_path.parent),
         )
     except Exception as exc:
-        _log(f"Failed to launch Nuke: {exc}", _color("error"))
+        _log(f"Failed to launch {label}: {exc}", _color("error"))
 
 
 # ---------------------------------------------------------------------------
