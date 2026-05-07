@@ -26,14 +26,17 @@ for %%I in ("%NUKE_ROOT%") do set "_NUKE_BASENAME=%%~nxI"
 for /f "tokens=1 delims=v" %%a in ("%_NUKE_BASENAME%") do set "NUKE_EXE=%%a.exe"
 set "NUKE_EXE=%NUKE_EXE: =%"
 
+:: Normalize file path (/ -> \ for UNC and mapped-drive compatibility)
+set "NUKE_FILE=%~1"
+set "NUKE_FILE=%NUKE_FILE:/=\%"
+
 :: PRINT ---------------------------------------------------------------------
 echo ----------------GAZUENV-
 echo GAZUREMOTE ROOT        : %GAZUREMOTE_ROOT%
 echo HOME                   : %HOME%
 echo NUKE PATH              : %NUKE_PATH:;= & ECHO:                       : %
 echo PYTHONPATH             : %PYTHONPATH:;= & ECHO:                       : %
-if not "%~2"=="" echo Nuke flag              : %~2
-
+echo NUKE START COMMAND     : %NUKE_ROOT%\%NUKE_EXE% %~2 "%NUKE_FILE%"
 echo:
 echo Environment DONE, start %NUKE_EXE%
 echo:
@@ -42,5 +45,5 @@ echo:
 
 :: RUN -----------------------------------------------------------------------
 :: %~1 = file path, %~2 = optional flag (e.g. --nukex)
-start "" "%NUKE_ROOT%\%NUKE_EXE%" %~2 "%~1"
+start "" "%NUKE_ROOT%\%NUKE_EXE%" %~2 "%NUKE_FILE%"
 timeout /t 60 /nobreak

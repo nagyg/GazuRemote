@@ -32,6 +32,10 @@ set "FUSION16_PROFILE=Gazu"
 :: Python script updates the preferences file with current environment paths
 "%PYTHON_ROOT%\python.exe" "%~dp0setenv_fusion.py" "%GAZUDATA%\Profiles\Gazu\master.prefs" "%FUSION_MasterPrefs%" "GazuData:=%GAZUDATA%" "Reactor:=%REACTOR_PATH%" "LocalData:=%LOCALDATA%"
 
+:: Normalize file path (/ -> \ for UNC and mapped-drive compatibility)
+set "FUSION_FILE=%~1"
+set "FUSION_FILE=%FUSION_FILE:/=\%"
+
 :: PRINT ---------------------------------------------------------------------
 echo ----------------GAZUENV-
 echo GAZUREMOTE ROOT        : %GAZUREMOTE_ROOT%
@@ -39,7 +43,7 @@ echo FUSION ROOT            : %FUSION_ROOT%
 echo LOCALDATA              : %LOCALDATA%
 echo REACTOR PATH           : %REACTOR_PATH%
 echo PYTHONPATH             : %PYTHONPATH:;= & ECHO:                       : %
-
+echo FUSION START COMMAND   : %FUSION_ROOT%\Fusion.exe "%FUSION_FILE%"
 echo:
 echo Environment DONE, start Fusion.exe
 echo:
@@ -47,5 +51,5 @@ echo:
 @REM set
 
 :: RUN ---------------------------------------------------------------------
-start "" "%FUSION_ROOT%\Fusion.exe" "%~1"
+start "" "%FUSION_ROOT%\Fusion.exe" "%FUSION_FILE%"
 timeout /t 60 /nobreak
