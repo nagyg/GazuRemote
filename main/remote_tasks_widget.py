@@ -966,6 +966,7 @@ class RemoteTasksWidget(QtWidgets.QWidget):
             action_open_nukex = menu.addAction("Open in NukeX")
             action_open_nukeassist = menu.addAction("Open in Nuke Assist")
 
+        menu.addSeparator()
         action_reveal = menu.addAction("Show in Explorer")
         action_copy = menu.addAction("Copy Path")
         menu.addSeparator()
