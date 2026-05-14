@@ -6,8 +6,8 @@ if not defined NUKE_ROOT set "NUKE_ROOT=C:\Program Files\Nuke17.0v1"
 
 for %%I in ("%~dp0..\..") do set "GAZUREMOTE_ROOT=%%~fI"
 
-:: Neat License
-set RLM_LICENSE=25153@10.0.0.35
+:: Nuke License
+set foundry_LICENSE=4101@10.0.0.35
 
 :: Profiles
 set "HOME=%USERPROFILE%\GazuRemote\dcc\Nuke"
