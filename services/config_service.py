@@ -2,6 +2,9 @@ import json
 from pathlib import Path
 
 
+REMOTE_NUKE_LICENSE_SERVER = "4101@10.0.0.35"
+
+
 class ConfigService:
     """
     Handles loading and saving user configuration for GazuRemote.
@@ -108,6 +111,22 @@ class ConfigService:
         """Loads the Nuke executable directory path from user settings."""
         default = r"C:\Program Files\Nuke17.0v1"
         return self.load_config_data().get("user_settings", {}).get("nuke_path", default)
+
+    def save_nuke_use_license(self, enabled: bool) -> None:
+        """Saves whether Remote Nuke should inject the Foundry license env var."""
+        data = self.load_config_data()
+        if "user_settings" not in data:
+            data["user_settings"] = {}
+        data["user_settings"]["nuke_use_license"] = bool(enabled)
+        self._save_config_data(data)
+
+    def load_nuke_use_license(self) -> bool:
+        """Loads whether Remote Nuke should inject the Foundry license env var."""
+        return bool(self.load_config_data().get("user_settings", {}).get("nuke_use_license", False))
+
+    def load_nuke_license_server(self) -> str:
+        """Returns the fixed Remote Nuke license server value."""
+        return REMOTE_NUKE_LICENSE_SERVER
 
     def load_config_data(self):
         """Loads the entire configuration data from the file."""

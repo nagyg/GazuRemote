@@ -61,7 +61,14 @@ def launch_with_dcc(
 
     if dcc == "nuke":
         nuke_path = config_service.load_nuke_path()
-        _launch_nuke(file_path, nuke_path, app_root, log_func, nuke_flag=nuke_flag)
+        _launch_nuke(
+            file_path,
+            nuke_path,
+            app_root,
+            config_service,
+            log_func,
+            nuke_flag=nuke_flag,
+        )
         return True
 
     return False
@@ -113,6 +120,7 @@ def _launch_nuke(
     file_path: str,
     nuke_path: str,
     app_root: Path,
+    config_service,
     log_func=None,
     nuke_flag: str = "",
 ) -> None:
@@ -136,6 +144,11 @@ def _launch_nuke(
 
     env = _get_clean_env()
     env["NUKE_ROOT"] = nuke_path
+
+    if config_service.load_nuke_use_license():
+        env["NUKE_LICENSE"] = config_service.load_nuke_license_server()
+    else:
+        env.pop("NUKE_LICENSE", None)
 
     # Build NUKE_PATH dynamically from all subdirs in dcc/Nuke/Plugins
     nuke_plugins_root = Path(app_root) / "dcc" / "Nuke"

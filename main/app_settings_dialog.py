@@ -210,6 +210,30 @@ class AppSettingsDialog(QtWidgets.QDialog):
         self._form.addRow(label, row_widget)
         return edit
 
+    def _make_checkbox_row(
+        self,
+        label: str,
+        kind: str,
+        info_text: str = "",
+    ) -> QtWidgets.QCheckBox:
+        """Add a labelled checkbox row. Returns the checkbox widget."""
+        checkbox = QtWidgets.QCheckBox()
+
+        row_widget = QtWidgets.QWidget()
+        h = QtWidgets.QHBoxLayout(row_widget)
+        h.setContentsMargins(0, 0, 0, 0)
+        h.setSpacing(6)
+        h.addWidget(checkbox)
+        if info_text:
+            info_lbl = QtWidgets.QLabel(info_text)
+            info_lbl.setStyleSheet("color: #8a8a8a;")
+            h.addWidget(info_lbl)
+        h.addStretch(1)
+        h.addWidget(self._badge(kind))
+
+        self._form.addRow(label, row_widget)
+        return checkbox
+
     def _browse_folder(self, edit: QtWidgets.QLineEdit) -> None:
         """Generic folder-browse handler shared by all path rows."""
         current = edit.text().strip()
@@ -237,6 +261,13 @@ class AppSettingsDialog(QtWidgets.QDialog):
             "Root Path", "user",
             placeholder=r"C:\Program Files\Nuke17.0v1",
         )
+        nuke_license_server = self._config.load_nuke_license_server()
+        self._nuke_use_license_cb = self._make_checkbox_row(
+            "Remote License", "user", f"License Server {nuke_license_server}"
+        )
+        self._nuke_use_license_cb.setToolTip(
+            "Inject Foundry license server for remote Nuke launch"
+        )
 
     # ------------------------------------------------------------------
     # Load / save
@@ -245,24 +276,29 @@ class AppSettingsDialog(QtWidgets.QDialog):
     def _load_values(self) -> None:
         self._fusion_path_edit.setText(self._config.load_fusion_path())
         self._nuke_path_edit.setText(self._config.load_nuke_path())
+        self._nuke_use_license_cb.setChecked(self._config.load_nuke_use_license())
 
     def _capture_originals(self) -> None:
         """Snapshot the loaded values so we can detect dirty state."""
         self._orig_fusion_path  = self._fusion_path_edit.text()
         self._orig_nuke_path    = self._nuke_path_edit.text()
+        self._orig_nuke_use_license = self._nuke_use_license_cb.isChecked()
 
     def _wire_dirty_checks(self) -> None:
         self._fusion_path_edit.textChanged.connect(self._update_save_state)
         self._nuke_path_edit.textChanged.connect(self._update_save_state)
+        self._nuke_use_license_cb.toggled.connect(self._update_save_state)
 
     def _update_save_state(self) -> None:
         dirty = (
             self._fusion_path_edit.text() != self._orig_fusion_path
             or self._nuke_path_edit.text() != self._orig_nuke_path
+            or self._nuke_use_license_cb.isChecked() != self._orig_nuke_use_license
         )
         self._save_btn.setEnabled(dirty)
 
     def _on_save(self) -> None:
         self._config.save_fusion_path(self._fusion_path_edit.text().strip())
         self._config.save_nuke_path(self._nuke_path_edit.text().strip())
+        self._config.save_nuke_use_license(self._nuke_use_license_cb.isChecked())
         self.accept()
