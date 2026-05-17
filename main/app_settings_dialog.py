@@ -33,8 +33,9 @@ from services.config_service import ConfigService
 # ---------------------------------------------------------------------------
 
 _STYLE_SECTION_HEADER = (
-    "font-weight: bold; font-size: 12px; color: #cccccc; "
-    "border-bottom: 1px solid #444; padding-bottom: 4px; margin-top: 8px;"
+    "font-weight: bold; font-size: 11px; color: #c8c8ff; "
+    "background: #252540; border-radius: 3px; "
+    "padding: 4px 8px; margin-top: 6px;"
 )
 _STYLE_USER_BADGE = (
     "font-size: 9px; color: #888; background: #2a3a2a; "
@@ -135,6 +136,7 @@ class AppSettingsDialog(QtWidgets.QDialog):
         """Add a bold section-header row to the form."""
         lbl = QtWidgets.QLabel(title)
         lbl.setStyleSheet(_STYLE_SECTION_HEADER)
+        lbl.setSizePolicy(QtWidgets.QSizePolicy.Expanding, QtWidgets.QSizePolicy.Fixed)
         self._form.addRow(lbl)
 
     def _badge(self, kind: str) -> QtWidgets.QLabel:
