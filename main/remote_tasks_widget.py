@@ -107,12 +107,13 @@ class FileTableModel(QStandardItemModel):
 class PublishWorker(QObject):
     finished = Signal(bool, object)
 
-    def __init__(self, task, task_status, comment, file_path):
+    def __init__(self, task, task_status, comment, file_path, revision=None):
         super().__init__()
         self.task = task
         self.task_status = task_status
         self.comment = comment
         self.file_path = file_path
+        self.revision = revision
 
     def run(self):
         try:
@@ -121,6 +122,7 @@ class PublishWorker(QObject):
                 task_status=self.task_status,
                 comment=self.comment,
                 file_path=self.file_path,
+                revision=self.revision,
             )
             self.finished.emit(success, result)
         except Exception as e:
@@ -1234,6 +1236,7 @@ class RemoteTasksWidget(QtWidgets.QWidget):
             return
 
         comment = dlg.get_comment()
+        revision = dlg.get_revision()
         file_name = os.path.basename(file_path)
 
         self._log(f"Added to publish queue '{file_name}'...", ui_utils.COLOR_INFO)
@@ -1245,6 +1248,7 @@ class RemoteTasksWidget(QtWidgets.QWidget):
             'task_data': task_data,
             'status_dict': selected_status,
             'comment': comment,
+            'revision': revision,
         }
 
         if not hasattr(self.main_window, "publisher_manager_dialog") or \

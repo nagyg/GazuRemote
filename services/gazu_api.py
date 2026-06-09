@@ -235,14 +235,17 @@ def get_all_task_types_for_project(project):
 
 
 @_gazu_api_call
-def publish_preview_to_task(task, task_status, comment, file_path):
-    """Publishes a preview file for a given task with a comment."""
+def publish_preview_to_task(task, task_status, comment, file_path, revision=None):
+    """Publishes a preview file for a given task with a comment.
+    revision=None means auto-increment (Kitsu picks next); explicit int is stored as-is.
+    """
     params = {
         "task": task,
         "task_status": task_status,
         "comment": comment,
         "preview_file_path": file_path,
         "normalize_movie": True,
+        "revision": revision,
     }
     return gazu.task.publish_preview(**params)
 

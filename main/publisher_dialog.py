@@ -1,4 +1,5 @@
 import os
+import re
 from pathlib import Path
 
 from PySide6 import QtWidgets, QtCore, QtGui
@@ -29,6 +30,7 @@ class PublisherDialog(QtWidgets.QDialog):
         self.file_path_line_edit = self.ui.findChild(QtWidgets.QLineEdit, "filePathLineEdit")
         self.browse_file_button = self.ui.findChild(QtWidgets.QPushButton, "browseFileButton")
         self.status_combo_box = self.ui.findChild(QtWidgets.QComboBox, "status_combo_box")
+        self.revision_spin_box = self.ui.findChild(QtWidgets.QSpinBox, "revision_spin_box")
         self.comment_text_edit = self.ui.findChild(QtWidgets.QTextEdit, "comment_text_edit")
         self.buttonBox = self.ui.findChild(QtWidgets.QDialogButtonBox, "buttonBox")
 
@@ -37,6 +39,7 @@ class PublisherDialog(QtWidgets.QDialog):
             "filePathLineEdit": self.file_path_line_edit,
             "browseFileButton": self.browse_file_button,
             "status_combo_box": self.status_combo_box,
+            "revision_spin_box": self.revision_spin_box,
             "comment_text_edit": self.comment_text_edit,
             "buttonBox": self.buttonBox,
         }.items() if not w]
@@ -106,6 +109,13 @@ class PublisherDialog(QtWidgets.QDialog):
         file_name = os.path.basename(path)
         if not self.comment_text_edit.toPlainText():
             self.comment_text_edit.setPlainText(file_name)
+        self._update_revision_spinbox(file_name)
+
+    def _update_revision_spinbox(self, file_name: str):
+        """Sets the revision SpinBox value extracted from the filename (e.g. _v003 → 3)."""
+        name_no_ext = os.path.splitext(file_name)[0]
+        matches = list(re.finditer(r"[._]v(\d+)", name_no_ext, re.IGNORECASE))
+        self.revision_spin_box.setValue(int(matches[-1].group(1)) if matches else -1)
 
     def _on_browse_file(self):
         """Opens a file dialog to select the preview file to publish."""
@@ -154,6 +164,11 @@ class PublisherDialog(QtWidgets.QDialog):
         """Returns the comment as HTML-formatted text (newlines → <br>)."""
         plain_text = self.comment_text_edit.toPlainText()
         return ui_utils.format_comment_html(plain_text)
+
+    def get_revision(self):
+        """Returns the revision number, or None if set to Auto (-1)."""
+        value = self.revision_spin_box.value()
+        return None if value == -1 else value
 
     def get_selected_status(self):
         """Returns the currently selected status dictionary."""

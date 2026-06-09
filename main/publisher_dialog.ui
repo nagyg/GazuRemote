@@ -72,6 +72,28 @@
     </widget>
    </item>
    <item>
+    <widget class="QGroupBox" name="revisionGroupBox">
+     <property name="title"><string>Revision</string></property>
+     <layout class="QHBoxLayout" name="revisionHBox">
+      <item>
+       <widget class="QSpinBox" name="revision_spin_box">
+        <property name="toolTip"><string>Set to Auto to let Kitsu assign the next revision number automatically.</string></property>
+        <property name="specialValueText"><string>Auto</string></property>
+        <property name="minimum"><number>-1</number></property>
+        <property name="maximum"><number>9999</number></property>
+        <property name="value"><number>-1</number></property>
+       </widget>
+      </item>
+      <item>
+       <spacer name="revisionSpacer">
+        <property name="orientation"><enum>Qt::Orientation::Horizontal</enum></property>
+        <property name="sizeHint" stdset="0"><size><width>40</width><height>20</height></size></property>
+       </spacer>
+      </item>
+     </layout>
+    </widget>
+   </item>
+   <item>
     <widget class="QGroupBox" name="commentGroupBox">
      <property name="title">
       <string>Comment</string>

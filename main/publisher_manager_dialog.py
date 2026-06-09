@@ -158,7 +158,8 @@ class PublisherManagerDialog(QtWidgets.QDialog):
                 'task_data': item_data['task_data'],
                 'task_status': selected_status,
                 'comment': formatted_comment,
-                'file_path': item_data['file_path']
+                'file_path': item_data['file_path'],
+                'revision': item_data.get('revision'),
             }))
 
             # Log addition if not initial setup
@@ -200,7 +201,8 @@ class PublisherManagerDialog(QtWidgets.QDialog):
             task=work_kwargs['task_data'],
             task_status=work_kwargs['task_status'],
             comment=work_kwargs['comment'],
-            file_path=work_kwargs['file_path']
+            file_path=work_kwargs['file_path'],
+            revision=work_kwargs.get('revision'),
         )
         worker.moveToThread(thread)
 
