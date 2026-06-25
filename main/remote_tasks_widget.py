@@ -8,7 +8,7 @@ import webbrowser
 from pathlib import Path
 
 from PySide6 import QtWidgets, QtCore
-from PySide6.QtCore import Qt, QObject, Signal, QThreadPool, QRunnable, QMimeData
+from PySide6.QtCore import Qt, QObject, Signal, QThread, QThreadPool, QRunnable, QMimeData, QUrl
 from PySide6.QtGui import (
     QStandardItemModel, QStandardItem, QBrush, QColor, QFont, QPixmap, QIcon
 )
@@ -25,44 +25,188 @@ COLOR_NO_PATH   = QColor(150, 50, 50)   # red – task/parent with unsynced file
 COLOR_PARENT_OK = QColor(50, 150, 50)  # green – all tasks found under this parent
 
 
-# ---------------------------------------------------------------------------
-# Read-only filesystem model (drag = copy only)
-# ---------------------------------------------------------------------------
+# Roles used by LazyDirModel items
+_DIR_PATH_ROLE = Qt.UserRole + 1
+_DIR_PLACEHOLDER_ROLE = Qt.UserRole + 50
 
-class ReadOnlyFileSystemModel(QtWidgets.QFileSystemModel):
+
+class DirScanWorker(QObject):
+    """
+    Scans a single directory level on a background thread using os.scandir,
+    so the main UI thread is never blocked by network I/O.
+    Emits a list of (name, full_path, has_children) tuples.
+    """
+    result_ready = Signal(list)
+    finished = Signal()
+
+    def __init__(self, path):
+        super().__init__()
+        self._path = path
+        self._cancelled = False
+
+    def cancel(self):
+        self._cancelled = True
+
+    def run(self):
+        entries = []
+        try:
+            for entry in os.scandir(self._path):
+                if self._cancelled:
+                    break
+                if not entry.is_dir(follow_symlinks=False):
+                    continue
+                try:
+                    has_children = any(
+                        e.is_dir(follow_symlinks=False) for e in os.scandir(entry.path)
+                    )
+                except (OSError, PermissionError):
+                    has_children = False
+                entries.append((entry.name, entry.path, has_children))
+        except OSError:
+            pass
+        if not self._cancelled:
+            self.result_ready.emit(sorted(entries, key=lambda x: x[0].lower(), reverse=True))
+        self.finished.emit()
+
+
+class LazyDirModel(QStandardItemModel):
+    """
+    A directory tree model that loads one level at a time using background
+    DirScanWorker threads. The main thread is never blocked by network I/O.
+    """
+    path_ready_to_select = Signal(str)
+    _dispatch = Signal(int, str, bool, list)
+
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self._generation = 0
+        self._root_path = ""
+        self._allowed_names = None
+        self._auto_select_path = None
+        self._workers = {}
+        self._usd_icon = None
+        self._folder_icon = QFileIconProvider().icon(QFileIconProvider.IconType.Folder)
+        self.setHorizontalHeaderLabels(["Directories"])
+        self._dispatch.connect(self._on_scan_ready)
+
+    def set_usd_icon(self, icon):
+        self._usd_icon = icon
+
+    def loadRootPath(self, path, allowed_names=None, auto_select_path=None):
+        self._generation += 1
+        self._cancel_all_workers()
+        self.clear()
+        self.setHorizontalHeaderLabels(["Directories"])
+        self._root_path = path
+        self._allowed_names = allowed_names
+        self._auto_select_path = auto_select_path
+        self._start_scan(path, is_root=True)
+
+    def clearAll(self):
+        self._generation += 1
+        self._cancel_all_workers()
+        self.clear()
+        self.setHorizontalHeaderLabels(["Directories"])
+        self._root_path = ""
+        self._auto_select_path = None
+
+    def loadChildren(self, scan_path):
+        if scan_path in self._workers:
+            return
+        self._start_scan(scan_path, is_root=False)
+
+    def findItemByPath(self, path):
+        norm = os.path.normpath(path)
+        return self._find_recursive(self.invisibleRootItem(), norm)
+
+    def mimeData(self, indexes):
+        paths = set()
+        for index in indexes:
+            if index.column() != 0:
+                continue
+            item = self.itemFromIndex(index)
+            if item:
+                p = item.data(_DIR_PATH_ROLE)
+                if p:
+                    paths.add(p)
+        if not paths:
+            return super().mimeData(indexes)
+        mime = QMimeData()
+        mime.setUrls([QUrl.fromLocalFile(p) for p in paths])
+        return mime
+
     def supportedDragActions(self):
         return Qt.CopyAction
 
+    def _start_scan(self, scan_path, is_root):
+        generation = self._generation
+        worker = DirScanWorker(scan_path)
+        thread = QThread()
+        worker.moveToThread(thread)
+        thread.started.connect(worker.run)
+        worker.result_ready.connect(
+            lambda entries, _g=generation, _p=scan_path, _r=is_root:
+                self._dispatch.emit(_g, _p, _r, entries)
+        )
+        worker.finished.connect(thread.quit)
+        worker.finished.connect(worker.deleteLater)
+        thread.finished.connect(thread.deleteLater)
+        thread.finished.connect(lambda _p=scan_path: self._workers.pop(_p, None))
+        self._workers[scan_path] = (thread, worker)
+        thread.start()
 
-# ---------------------------------------------------------------------------
-# Proxy that can hide all content (used to keep the dir tree blank when no
-# task is selected, while the underlying model is already set to a root).
-# ---------------------------------------------------------------------------
+    @QtCore.Slot(int, str, bool, list)
+    def _on_scan_ready(self, generation, scan_path, is_root, entries):
+        if generation != self._generation:
+            return
+        if is_root:
+            p_item = self.invisibleRootItem()
+            if self._allowed_names:
+                entries = [e for e in entries if e[0] in self._allowed_names]
+        else:
+            p_item = self.findItemByPath(scan_path)
+            if p_item is None:
+                return
+        for row in range(p_item.rowCount() - 1, -1, -1):
+            child = p_item.child(row, 0)
+            if child and child.data(_DIR_PLACEHOLDER_ROLE):
+                p_item.removeRow(row)
+        for name, full_path, has_children in entries:
+            item = QStandardItem(name)
+            item.setData(full_path, _DIR_PATH_ROLE)
+            item.setToolTip(os.path.normpath(full_path))
+            item.setEditable(False)
+            if name == "usd" and self._usd_icon and not self._usd_icon.isNull():
+                item.setIcon(self._usd_icon)
+            else:
+                item.setIcon(self._folder_icon)
+            if has_children:
+                placeholder = QStandardItem("")
+                placeholder.setData(True, _DIR_PLACEHOLDER_ROLE)
+                item.appendRow(placeholder)
+            p_item.appendRow(item)
+        if is_root and self._auto_select_path:
+            path_to_select = self._auto_select_path
+            self._auto_select_path = None
+            self.path_ready_to_select.emit(path_to_select)
 
-class EmptyRootProxyModel(QtCore.QSortFilterProxyModel):
-    def __init__(self, parent=None):
-        super().__init__(parent)
-        self._show = False
-        self._header_title = None
+    def _cancel_all_workers(self):
+        for _path, (_thread, worker) in list(self._workers.items()):
+            worker.cancel()
 
-    def setShowContent(self, show: bool):
-        self._show = show
-        self.invalidateFilter()
-
-    def setHeaderTitle(self, title):
-        """Sets a custom title for the first column's header."""
-        self._header_title = title
-        self.headerDataChanged.emit(Qt.Horizontal, 0, 0)
-
-    def headerData(self, section, orientation, role=Qt.DisplayRole):
-        if self._header_title and orientation == Qt.Horizontal and section == 0 and role == Qt.DisplayRole:
-            return self._header_title
-        return super().headerData(section, orientation, role)
-
-    def filterAcceptsRow(self, source_row, source_parent):
-        if not self._show:
-            return False
-        return super().filterAcceptsRow(source_row, source_parent)
+    def _find_recursive(self, parent, norm_path):
+        for row in range(parent.rowCount()):
+            item = parent.child(row, 0)
+            if item is None or item.data(_DIR_PLACEHOLDER_ROLE):
+                continue
+            item_path = item.data(_DIR_PATH_ROLE)
+            if item_path and os.path.normpath(item_path) == norm_path:
+                return item
+            if item.hasChildren():
+                result = self._find_recursive(item, norm_path)
+                if result:
+                    return result
+        return None
 
 
 # ---------------------------------------------------------------------------
@@ -257,17 +401,8 @@ class RemoteTasksWidget(QtWidgets.QWidget):
     def _setup_dir_and_file_views(self):
         # ── Directories tree ──────────────────────────────────────────────
         if self.directories_tree_view:
-            self.dir_model = ReadOnlyFileSystemModel(self)
-            self.dir_model.setFilter(
-                QtCore.QDir.NoDotAndDotDot | QtCore.QDir.AllDirs
-            )
-            self.dir_model.setRootPath("")
-
-            self.dir_proxy = EmptyRootProxyModel(self)
-            self.dir_proxy.setSourceModel(self.dir_model)
-            self.dir_proxy.setHeaderTitle("Directories")
-
-            self.directories_tree_view.setModel(self.dir_proxy)
+            self.dir_model = LazyDirModel(self)
+            self.directories_tree_view.setModel(self.dir_model)
             self.directories_tree_view.setEditTriggers(
                 QtWidgets.QAbstractItemView.NoEditTriggers
             )
@@ -275,10 +410,7 @@ class RemoteTasksWidget(QtWidgets.QWidget):
             self.directories_tree_view.setDragDropMode(
                 QtWidgets.QAbstractItemView.DragOnly
             )
-            # Hide size / type / date columns – show only name
-            for col in range(1, 4):
-                self.directories_tree_view.hideColumn(col)
-            self.directories_tree_view.sortByColumn(0, Qt.DescendingOrder)
+            self.directories_tree_view.expanded.connect(self._on_dir_expanded)
             self.directories_tree_view.selectionModel().selectionChanged.connect(
                 self.on_directory_selection_changed
             )
@@ -810,24 +942,10 @@ class RemoteTasksWidget(QtWidgets.QWidget):
         self._reset_files_view()
 
         if not local_path or not os.path.isdir(local_path):
-            self.dir_proxy.setShowContent(False)
+            self.dir_model.clearAll()
             return
 
-        root_index = self.dir_model.setRootPath(local_path)
-        self.dir_proxy.setSourceModel(self.dir_model)
-        self.dir_proxy.setShowContent(True)
-
-        proxy_root = self.dir_proxy.mapFromSource(root_index)
-        self.directories_tree_view.setRootIndex(proxy_root)
-
-        def _expand_once(path):
-            self.directories_tree_view.expandToDepth(0)
-            try:
-                self.dir_model.directoryLoaded.disconnect(_expand_once)
-            except RuntimeError:
-                pass
-
-        self.dir_model.directoryLoaded.connect(_expand_once)
+        self.dir_model.loadRootPath(local_path)
 
     # -------------------------------------------------------------------------
     # Directory selection -> populate files table
@@ -842,9 +960,10 @@ class RemoteTasksWidget(QtWidgets.QWidget):
             self._reset_files_view()
             return
 
-        proxy_index = indexes[0]
-        source_index = self.dir_proxy.mapToSource(proxy_index)
-        dir_path = self.dir_model.filePath(source_index)
+        item = self.dir_model.itemFromIndex(indexes[0])
+        if not item or item.data(_DIR_PLACEHOLDER_ROLE):
+            return
+        dir_path = item.data(Qt.UserRole + 1)
 
         self._populate_files(dir_path)
 
@@ -918,12 +1037,28 @@ class RemoteTasksWidget(QtWidgets.QWidget):
 
         ui_utils.open_file(file_path)
 
+    def _on_dir_expanded(self, index):
+        """Lazily loads children of the expanded directory node on a background thread."""
+        item = self.dir_model.itemFromIndex(index)
+        if not item:
+            return
+        if item.rowCount() == 1:
+            placeholder = item.child(0, 0)
+            if placeholder and placeholder.data(_DIR_PLACEHOLDER_ROLE):
+                path = item.data(Qt.UserRole + 1)
+                if path:
+                    self.dir_model.loadChildren(path)
+
     def _on_dir_double_clicked(self, index):
         """Opens the selected directory in the system file explorer."""
         if not index.isValid():
             return
-        source_index = self.dir_proxy.mapToSource(index)
-        full_path = self.dir_model.filePath(source_index)
+        item = self.dir_model.itemFromIndex(index)
+        if not item:
+            return
+        full_path = item.data(Qt.UserRole + 1)
+        if not full_path:
+            return
         if os.path.isdir(full_path):
             webbrowser.open(os.path.realpath(full_path))
         else:
@@ -934,8 +1069,8 @@ class RemoteTasksWidget(QtWidgets.QWidget):
             self.files_model.removeRows(0, self.files_model.rowCount())
 
     def _reset_dir_and_file_views(self):
-        if hasattr(self, "dir_proxy"):
-            self.dir_proxy.setShowContent(False)
+        if hasattr(self, "dir_model"):
+            self.dir_model.clearAll()
         self._reset_files_view()
 
     # -------------------------------------------------------------------------
@@ -1036,8 +1171,10 @@ class RemoteTasksWidget(QtWidgets.QWidget):
         indexes = self.directories_tree_view.selectionModel().selectedIndexes()
         if not indexes:
             return None
-        source_index = self.dir_proxy.mapToSource(indexes[0])
-        return self.dir_model.filePath(source_index)
+        item = self.dir_model.itemFromIndex(indexes[0])
+        if not item or item.data(_DIR_PLACEHOLDER_ROLE):
+            return None
+        return item.data(Qt.UserRole + 1)
 
     def _refresh_files_view(self):
         """Re-populates the files table from the currently selected directory."""
