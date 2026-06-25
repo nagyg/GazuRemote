@@ -75,6 +75,7 @@ class LazyDirModel(QStandardItemModel):
     DirScanWorker threads. The main thread is never blocked by network I/O.
     """
     path_ready_to_select = Signal(str)
+    expand_index = Signal(QtCore.QModelIndex)
     _dispatch = Signal(int, str, bool, list)
 
     def __init__(self, parent=None):
@@ -83,6 +84,7 @@ class LazyDirModel(QStandardItemModel):
         self._root_path = ""
         self._allowed_names = None
         self._auto_select_path = None
+        self._restore_paths = set()
         self._workers = {}
         self._usd_icon = None
         self._folder_icon = QFileIconProvider().icon(QFileIconProvider.IconType.Folder)
@@ -92,7 +94,7 @@ class LazyDirModel(QStandardItemModel):
     def set_usd_icon(self, icon):
         self._usd_icon = icon
 
-    def loadRootPath(self, path, allowed_names=None, auto_select_path=None):
+    def loadRootPath(self, path, allowed_names=None, auto_select_path=None, restore_expanded=None):
         self._generation += 1
         self._cancel_all_workers()
         self.clear()
@@ -100,6 +102,7 @@ class LazyDirModel(QStandardItemModel):
         self._root_path = path
         self._allowed_names = allowed_names
         self._auto_select_path = auto_select_path
+        self._restore_paths = set(restore_expanded) if restore_expanded else set()
         self._start_scan(path, is_root=True)
 
     def clearAll(self):
@@ -109,6 +112,7 @@ class LazyDirModel(QStandardItemModel):
         self.setHorizontalHeaderLabels(["Directories"])
         self._root_path = ""
         self._auto_select_path = None
+        self._restore_paths = set()
 
     def loadChildren(self, scan_path):
         if scan_path in self._workers:
@@ -167,10 +171,8 @@ class LazyDirModel(QStandardItemModel):
             p_item = self.findItemByPath(scan_path)
             if p_item is None:
                 return
-        for row in range(p_item.rowCount() - 1, -1, -1):
-            child = p_item.child(row, 0)
-            if child and child.data(_DIR_PLACEHOLDER_ROLE):
-                p_item.removeRow(row)
+        p_item.removeRows(0, p_item.rowCount())
+        items_to_expand = []
         for name, full_path, has_children in entries:
             item = QStandardItem(name)
             item.setData(full_path, _DIR_PATH_ROLE)
@@ -184,7 +186,16 @@ class LazyDirModel(QStandardItemModel):
                 placeholder = QStandardItem("")
                 placeholder.setData(True, _DIR_PLACEHOLDER_ROLE)
                 item.appendRow(placeholder)
+                if os.path.normpath(full_path) in self._restore_paths:
+                    items_to_expand.append(item)
             p_item.appendRow(item)
+        if not is_root and items_to_expand:
+            p_item_index = self.indexFromItem(p_item)
+            if p_item_index.isValid():
+                self.expand_index.emit(p_item_index)
+        for child_item in items_to_expand:
+            self._restore_paths.discard(os.path.normpath(child_item.data(_DIR_PATH_ROLE)))
+            self.expand_index.emit(self.indexFromItem(child_item))
         if is_root and self._auto_select_path:
             path_to_select = self._auto_select_path
             self._auto_select_path = None
@@ -411,10 +422,13 @@ class RemoteTasksWidget(QtWidgets.QWidget):
                 QtWidgets.QAbstractItemView.DragOnly
             )
             self.directories_tree_view.expanded.connect(self._on_dir_expanded)
+            self.dir_model.expand_index.connect(self.directories_tree_view.expand)
             self.directories_tree_view.selectionModel().selectionChanged.connect(
                 self.on_directory_selection_changed
             )
             self.directories_tree_view.doubleClicked.connect(self._on_dir_double_clicked)
+            self.directories_tree_view.setContextMenuPolicy(Qt.CustomContextMenu)
+            self.directories_tree_view.customContextMenuRequested.connect(self.on_dirs_context_menu)
 
         # ── Files table ───────────────────────────────────────────────────
         if self.files_table_view:
@@ -1037,6 +1051,56 @@ class RemoteTasksWidget(QtWidgets.QWidget):
 
         ui_utils.open_file(file_path)
 
+    def _collect_expanded_paths(self):
+        """Returns the set of normalized paths for all currently expanded directory items."""
+        paths = set()
+        self._collect_expanded_recursive(self.dir_model.invisibleRootItem(), paths)
+        return paths
+
+    def _collect_expanded_recursive(self, parent_item, paths):
+        for row in range(parent_item.rowCount()):
+            item = parent_item.child(row, 0)
+            if item is None or item.data(_DIR_PLACEHOLDER_ROLE):
+                continue
+            index = self.dir_model.indexFromItem(item)
+            if self.directories_tree_view.isExpanded(index):
+                path = item.data(Qt.UserRole + 1)
+                if path:
+                    paths.add(os.path.normpath(path))
+                self._collect_expanded_recursive(item, paths)
+
+    def _dir_refresh_node(self, item):
+        """Refreshes a directory node. Previously expanded sub-dirs are re-expanded after the scan."""
+        path = item.data(Qt.UserRole + 1)
+        if not path:
+            return
+
+        expanded = self._collect_expanded_paths()
+
+        # Root-level item → reload entire root
+        if item.parent() is None:
+            self.dir_model.loadRootPath(
+                self.dir_model._root_path,
+                allowed_names=self.dir_model._allowed_names,
+                restore_expanded=expanded,
+            )
+            return
+
+        # Cancel any in-progress scan for this path
+        if path in self.dir_model._workers:
+            self.dir_model._workers[path][1].cancel()
+            self.dir_model._workers.pop(path, None)
+
+        # Persist restore set: include this item's own path so it re-expands after scan
+        self.dir_model._restore_paths = expanded | {os.path.normpath(path)}
+
+        # Reset to placeholder so the scan starts fresh
+        item.removeRows(0, item.rowCount())
+        placeholder = QStandardItem("")
+        placeholder.setData(True, _DIR_PLACEHOLDER_ROLE)
+        item.appendRow(placeholder)
+        self.dir_model.loadChildren(path)
+
     def _on_dir_expanded(self, index):
         """Lazily loads children of the expanded directory node on a background thread."""
         item = self.dir_model.itemFromIndex(index)
@@ -1048,6 +1112,97 @@ class RemoteTasksWidget(QtWidgets.QWidget):
                 path = item.data(Qt.UserRole + 1)
                 if path:
                     self.dir_model.loadChildren(path)
+
+    def on_dirs_context_menu(self, point):
+        """Right-click context menu for the directories tree view."""
+        if not self.directories_tree_view or not hasattr(self, "dir_model"):
+            return
+        index = self.directories_tree_view.indexAt(point)
+        global_pos = self.directories_tree_view.viewport().mapToGlobal(point)
+        menu = QtWidgets.QMenu(self)
+
+        if index.isValid():
+            item = self.dir_model.itemFromIndex(index)
+            if item is None or item.data(_DIR_PLACEHOLDER_ROLE):
+                return
+            full_path = item.data(Qt.UserRole + 1)
+            if not full_path:
+                return
+
+            open_action   = menu.addAction("Open")
+            copy_action   = menu.addAction("Copy Path")
+            menu.addSeparator()
+            rename_action = menu.addAction("Rename")
+            delete_action = menu.addAction("Delete")
+            menu.addSeparator()
+            refresh_action = menu.addAction("Refresh")
+
+            action = menu.exec(global_pos)
+            if action == open_action:
+                if os.path.isdir(full_path):
+                    webbrowser.open(os.path.realpath(full_path))
+            elif action == copy_action:
+                QtWidgets.QApplication.clipboard().setText(os.path.normpath(full_path))
+            elif action == rename_action:
+                self._dir_rename(item, full_path)
+            elif action == delete_action:
+                self._dir_delete(item, full_path)
+            elif action == refresh_action:
+                self._dir_refresh_node(item)
+        else:
+            # Empty area – offer root refresh only
+            refresh_action = menu.addAction("Refresh")
+            action = menu.exec(global_pos)
+            if action == refresh_action and self.dir_model._root_path:
+                expanded = self._collect_expanded_paths()
+                self.dir_model.loadRootPath(
+                    self.dir_model._root_path,
+                    allowed_names=self.dir_model._allowed_names,
+                    restore_expanded=expanded,
+                )
+
+    def _dir_rename(self, item, full_path):
+        """Renames a directory after user input."""
+        old_name = item.text()
+        dialog = QInputDialog(self)
+        dialog.setWindowTitle("Rename Directory")
+        dialog.setLabelText("New name:")
+        dialog.setTextValue(old_name)
+        dialog.setInputMode(QInputDialog.TextInput)
+        dialog.resize(320, dialog.height())
+
+        if not dialog.exec():
+            return
+        new_name = dialog.textValue().strip()
+        if not new_name or new_name == old_name:
+            return
+
+        new_path = os.path.join(os.path.dirname(full_path), new_name)
+        try:
+            os.rename(full_path, new_path)
+            item.setText(new_name)
+            item.setData(new_path, Qt.UserRole + 1)
+            item.setToolTip(os.path.normpath(new_path))
+        except OSError as e:
+            QMessageBox.critical(self, "Rename Failed", str(e))
+
+    def _dir_delete(self, item, full_path):
+        """Deletes a directory after confirmation."""
+        reply = QMessageBox.warning(
+            self,
+            "Confirm Deletion",
+            f"Permanently delete '{item.text()}' and all its contents?",
+            QMessageBox.Yes | QMessageBox.No,
+            QMessageBox.No,
+        )
+        if reply != QMessageBox.Yes:
+            return
+        try:
+            shutil.rmtree(full_path)
+            parent = item.parent() or self.dir_model.invisibleRootItem()
+            parent.removeRow(item.row())
+        except OSError as e:
+            QMessageBox.critical(self, "Delete Failed", str(e))
 
     def _on_dir_double_clicked(self, index):
         """Opens the selected directory in the system file explorer."""
