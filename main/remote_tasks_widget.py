@@ -1149,17 +1149,6 @@ class RemoteTasksWidget(QtWidgets.QWidget):
                 self._dir_delete(item, full_path)
             elif action == refresh_action:
                 self._dir_refresh_node(item)
-        else:
-            # Empty area – offer root refresh only
-            refresh_action = menu.addAction("Refresh")
-            action = menu.exec(global_pos)
-            if action == refresh_action and self.dir_model._root_path:
-                expanded = self._collect_expanded_paths()
-                self.dir_model.loadRootPath(
-                    self.dir_model._root_path,
-                    allowed_names=self.dir_model._allowed_names,
-                    restore_expanded=expanded,
-                )
 
     def _dir_rename(self, item, full_path):
         """Renames a directory after user input."""
