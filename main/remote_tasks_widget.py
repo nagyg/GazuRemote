@@ -29,6 +29,11 @@ COLOR_PARENT_OK = QColor(50, 150, 50)  # green – all tasks found under this pa
 _DIR_PATH_ROLE = Qt.UserRole + 1
 _DIR_PLACEHOLDER_ROLE = Qt.UserRole + 50
 
+# Module-level keepalive: holds (thread, worker) pairs that are shutting down.
+# Prevents Python GC from destroying QThread/QObject while the C++ thread is
+# still executing (os.scandir may block on network paths).
+_zombie_threads: list = []
+
 
 class DirScanWorker(QObject):
     """
@@ -155,7 +160,20 @@ class LazyDirModel(QStandardItemModel):
         worker.finished.connect(thread.quit)
         worker.finished.connect(worker.deleteLater)
         thread.finished.connect(thread.deleteLater)
-        thread.finished.connect(lambda _p=scan_path: self._workers.pop(_p, None))
+
+        def _cleanup(p=scan_path, _workers=self._workers):
+            try:
+                _workers.pop(p, None)
+            except Exception:
+                pass
+            try:
+                pair = next((x for x in _zombie_threads if x[0] is thread), None)
+                if pair is not None:
+                    _zombie_threads.remove(pair)
+            except Exception:
+                pass
+
+        thread.finished.connect(_cleanup)
         self._workers[scan_path] = (thread, worker)
         thread.start()
 
@@ -202,8 +220,20 @@ class LazyDirModel(QStandardItemModel):
             self.path_ready_to_select.emit(path_to_select)
 
     def _cancel_all_workers(self):
-        for _path, (_thread, worker) in list(self._workers.items()):
+        for _path, (thread, worker) in list(self._workers.items()):
             worker.cancel()
+            thread.quit()
+
+    def shutdown(self):
+        """Cancels all workers and keeps their threads alive in _zombie_threads
+        until they finish naturally. Safe to call before widget destruction.
+        """
+        self._generation += 1
+        for _path, (thread, worker) in list(self._workers.items()):
+            worker.cancel()
+            thread.quit()
+            _zombie_threads.append((thread, worker))
+        self._workers.clear()
 
     def _find_recursive(self, parent, norm_path):
         for row in range(parent.rowCount()):
@@ -1629,6 +1659,9 @@ class RemoteTasksWidget(QtWidgets.QWidget):
                 )
             except (TypeError, RuntimeError):
                 pass
+        if hasattr(self, "dir_model"):
+            self.dir_model.shutdown()  # cancel + wait for all dir scan threads before detaching
+            self.directories_tree_view.setModel(None)
         self.thumbnail_thread_pool.clear()
 
 
