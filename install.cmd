@@ -45,6 +45,15 @@ exit /b 1
 
 :install_deps
 echo.
+echo [INFO] Applying sitecustomize.py (restores PYTHONPATH in the embedded Python)...
+copy /Y "%SCRIPT_DIR%sitecustomize.py" "%PYTHON_DIR%\Lib\site-packages\sitecustomize.py" >nul
+IF %ERRORLEVEL% NEQ 0 (
+    echo [ERROR] Failed to copy sitecustomize.py.
+    pause
+    exit /b 1
+)
+
+echo.
 echo [INFO] Installing desktop dependencies from requirements.txt...
 "%PYTHON%" -m pip install --upgrade pip --quiet --no-warn-script-location
 "%PYTHON%" -m pip uninstall -y gazu >nul 2>&1

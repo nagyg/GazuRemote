@@ -6,6 +6,8 @@ to the composition, then opens Show.py to display the result.
 """
 import os
 import json
+import sys
+import traceback
 
 
 def get_comp():
@@ -192,9 +194,15 @@ if __name__ == "__main__":
                     error_msg = str(ctx)
                     print(f"Gazu API error: {error_msg}")
                     current_comp.SetData("Gazu.api_error_msg", error_msg)
-            except ImportError:
-                error_msg = "gazu_api not available in PYTHONPATH"
+            except ImportError as e:
+                error_msg = f"Gazu API import failed: {type(e).__name__}: {e}"
                 print(f"WARNING: {error_msg}")
+                print(f"Python: {sys.version}")
+                print(f"Executable: {sys.executable}")
+                print(f"GAZULIB: {os.environ.get('GAZULIB', '')}")
+                print(f"PYTHONPATH: {os.environ.get('PYTHONPATH', '')}")
+                print(f"sys.path: {sys.path}")
+                traceback.print_exc()
                 current_comp.SetData("Gazu.api_error_msg", error_msg)
 
             # Always open Show.py (shows fresh data if api_ok, cached otherwise)

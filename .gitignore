@@ -13,12 +13,14 @@ user_config.json
 
 # Bundled Python runtime (large binary – distribute separately)
 Python312/*
-# The Gazu folder IS committed (contains scripts only – Lib/ is pip-installed at runtime)
+# The Gazu folder IS committed, but only Gazu/scripts/ (gazu_api.py).
+# It is NOT part of Python312.zip, so extracting the zip never overwrites it.
+# Gazu/Lib/ is pip-installed at runtime by install.cmd.
 !Python312/Gazu/
 Python312/Gazu/*
 !Python312/Gazu/scripts/
 
-# Gazu Lib (extracted at install time from Python312/Gazu/Lib.zip)
+# Gazu Lib (pip-installed at install time from requirements_dcc.txt)
 Python312/Gazu/Lib/
 
 # Nuke third-party plugins (installed locally – not committed)

@@ -113,6 +113,25 @@ Afterwards run `install.cmd` if dependencies changed.
 
 > **Note:** `update.cmd` requires a `git clone` installation. If you downloaded GazuRemote as a ZIP, the script will guide you through migrating to a proper clone.
 
+### Fusion context import errors
+
+Launch Fusion from GazuRemote so that `open_fusion.cmd` sets the Gazu paths.
+The bundled embedded Python (`Python312\python312._pth`) ignores `PYTHONPATH` by
+design. `install.cmd` copies `sitecustomize.py` into `Python312\Lib\site-packages`
+on every run, which restores `PYTHONPATH` at interpreter startup so Fusion can find
+`gazu_api` / `gazu_tools`. If this file is missing or out of date (e.g. an old
+install that was never re-run), Fusion-side Gazu imports (`Reload Context`,
+`Update Filename`, `Save Comp Version Up`) fail with `ModuleNotFoundError` even
+though `PYTHONPATH` looks correct in the console log. Fix: close Fusion, run
+`install.cmd` again, then relaunch Fusion from GazuRemote.
+
+If Reload Context reports `Gazu API import failed`, the message includes the actual
+missing module or import error. Check Fusion's console for the traceback, Python
+version and module search paths (`sys.path` should contain the `GAZULIB` folders). If a dependency is missing, close Fusion, run
+`install.cmd`, then relaunch Fusion from GazuRemote. If `gazu_api` itself is missing,
+verify that `Python312\Gazu\scripts\gazu_api.py` exists and update the installation.
+Cached context remains visible when an import fails; it is not a successful API refresh.
+
 ---
 
 ## Configuration

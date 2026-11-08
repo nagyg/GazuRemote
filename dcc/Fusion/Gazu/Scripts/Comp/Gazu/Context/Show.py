@@ -195,10 +195,10 @@ if HAS_QT:
             display_text = _format_context_display(gazu_data, path_prefs)
             if last_error:
                 sep = "\u2500" * 52
-                display_text = "[ API hiba ]\n\n  " + last_error + "\n\n" + sep + "\n\n" + display_text
+                display_text = "[ API error ]\n\n  " + last_error + "\n\n" + sep + "\n\n" + display_text
             self._text.setPlainText(display_text)
             if last_error:
-                self._status_lbl.setText(f"\u26a0 API hiba: {last_error}")
+                self._status_lbl.setText(f"\u26a0 API error: {last_error}")
                 self._status_lbl.setStyleSheet("color: #cc4444; font-size: 10px; padding: 2px 0;")
             elif gazu_data:
                 self._status_lbl.setText("Saved in .comp file  (CustomData \u203a Gazu)  \u2014  run Reload Context to update")
