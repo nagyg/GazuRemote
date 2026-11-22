@@ -82,6 +82,12 @@ install.cmd
 The script will:
 - Extract the bundled `Python312.zip` (Python 3.12.10 embeddable + pip)
 - Install desktop UI dependencies (`PySide6`) from `requirements.txt`
+- Install pipeline tool dependencies (`numpy`, `opencv-python-headless`, `pillow`, `imageio-ffmpeg`, `scipy`) from
+  `requirements_tools.txt`, so pipeline scripts (e.g. the project's Claude tools) run with this Python. Versions
+  follow the studio ComfyUI embedded Python.
+- Record the install location in the user environment variable `GAZUREMOTE_DIR` (pipeline tools find GazuRemote
+  and its Python through it, wherever it was cloned; run `install.cmd` again after moving the folder, and restart
+  open apps so they see the new value)
 - Extract the bundled `Python312\Gazu.zip` → `Python312\Gazu\` (Kitsu API stack: `gazu`, `requests`, `socketio`, `pywin32`, etc.)
 
 No separate Python installation required.

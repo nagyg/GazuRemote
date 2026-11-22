@@ -1,0 +1,8 @@
+# Pipeline tools run with this Python on remote machines (e.g. the KNG Claude tools in <project>\claude\tools):
+# image / video processing. Versions follow the studio ComfyUI embedded Python, so remote and studio results match.
+# OpenCV headless: the GUI build ships its own Qt plugins, which clash with PySide6.
+numpy==2.5.4
+opencv-python-headless==5.0.0.93
+pillow==13.0.0
+imageio-ffmpeg==0.8.1
+scipy==1.18.1

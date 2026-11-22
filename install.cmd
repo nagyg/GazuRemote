@@ -66,6 +66,16 @@ IF %ERRORLEVEL% NEQ 0 (
 )
 
 echo.
+echo [INFO] Installing pipeline tool dependencies from requirements_tools.txt...
+"%PYTHON%" -m pip install -r "%SCRIPT_DIR%requirements_tools.txt" --no-warn-script-location
+
+IF %ERRORLEVEL% NEQ 0 (
+    echo [ERROR] Pipeline tool dependency installation failed.
+    pause
+    exit /b 1
+)
+
+echo.
 echo [INFO] Installing Gazu DCC dependencies...
 IF EXIST "%GAZU_LIB%" (
     echo [INFO] Removing old Gazu Lib...
@@ -85,6 +95,18 @@ IF NOT EXIST "%GAZU_LIB%\gazu" (
     echo [ERROR] Gazu package not found after install.
     pause
     exit /b 1
+)
+
+echo.
+echo [INFO] Recording the install location in the user variable GAZUREMOTE_DIR...
+REM Pipeline tools find GazuRemote (and its Python) through it, wherever it was cloned.
+REM New processes see it; restart open apps (e.g. Claude Code) after the first install or a move.
+SET "INSTALL_DIR=%SCRIPT_DIR:~0,-1%"
+setx GAZUREMOTE_DIR "%INSTALL_DIR%" >nul
+IF %ERRORLEVEL% NEQ 0 (
+    echo [WARN] Could not set GAZUREMOTE_DIR. Set it by hand to: %INSTALL_DIR%
+) ELSE (
+    echo [OK] GAZUREMOTE_DIR = %INSTALL_DIR%
 )
 
 echo.
